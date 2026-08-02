@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, UserPlus, Settings, ChevronRight, Hotel, Utensils, Car, ShoppingBag, Coffee, Fuel, Zap, MoreHorizontal, Trash2, Edit2, Check, X, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Plus, UserPlus, Settings, ChevronRight, Hotel, Utensils, Car, ShoppingBag, Coffee, Fuel, Zap, MoreHorizontal, Trash2, Edit2, Check, X, AlertCircle, Download } from 'lucide-react';
 import { useStore, AVATAR_COLORS } from '../store';
 import { supabase } from '../supabase';
 import { Avatar, AvatarStack, BottomSheet, formatAmount, formatDateShort, getCategoryMeta, EmptyState } from '../components/ui';
@@ -170,26 +170,69 @@ function AddMemberSheet({ open, onClose, tripId, existingMemberIds }) {
 }
 
 // ── Trip Settings Sheet ───────────────────────────────────────
-function TripSettingsSheet({ open, onClose, trip }) {
+function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements }) {
   const { nav, dispatch } = useStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleDelete = async () => {
     try {
       await supabase.from('trips').delete().eq('id', trip.id);
-      dispatch({ type: 'SET_TRIPS', trips: [] }); // will reload on next nav
+      dispatch({ type: 'SET_TRIPS', trips: [] });
       onClose();
       nav('home');
     } catch (e) { console.error(e); }
   };
 
+  const exportCSV = () => {
+    const rows = [
+      ['Date', 'Title', 'Category', 'Amount', 'Paid By', 'Split Between'],
+      ...expenses.map(e => [
+        e.date,
+        e.title,
+        e.category,
+        e.amount,
+        e.paidBy.map(p => members.find(m => m.id === p.memberId)?.name || p.memberId).join('; '),
+        e.splitBetween.map(id => members.find(m => m.id === id)?.name || id).join('; '),
+      ]),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${trip.name.replace(/\s+/g, '_')}_expenses.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const exportSettlementsCSV = () => {
+    const rows = [
+      ['From', 'To', 'Amount'],
+      ...settlements.map(s => [
+        members.find(m => m.id === s.from)?.name || s.from,
+        members.find(m => m.id === s.to)?.name || s.to,
+        s.amount,
+      ]),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${trip.name.replace(/\s+/g, '_')}_settlements.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const settingsItems = [
+    { label: 'Edit Trip Details', icon: Edit2, onPress: () => { onClose(); nav('createTrip', { editTripId: trip.id }); } },
+    { label: 'Export Expenses (CSV)', icon: Download, onPress: exportCSV },
+    { label: 'Export Settlements (CSV)', icon: Download, onPress: exportSettlementsCSV },
+  ];
+
   return (
     <BottomSheet open={open} onClose={onClose} title="Trip Settings">
       <div style={{ padding: '8px 20px 32px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div className="card" style={{ padding: '4px 0' }}>
-          {[
-            { label: 'Edit Trip Details', icon: Edit2, onPress: () => { onClose(); nav('createTrip', { editTripId: trip.id }); } },
-          ].map(item => (
+          {settingsItems.map(item => (
             <button key={item.label} onClick={item.onPress} style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
               background: 'none', border: 'none', cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
@@ -396,6 +439,9 @@ export default function TripDashboardScreen() {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         trip={trip}
+        members={members}
+        expenses={expenses}
+        settlements={settlements}
       />
     </div>
   );

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Moon, Download, Info, Shield, LogOut, Edit2, Check, X, AlertCircle } from 'lucide-react';
+import { Moon, LogOut, Edit2, Check, X, AlertCircle } from 'lucide-react';
 import { useStore, AVATAR_COLORS } from '../store';
-import { Avatar, BottomSheet, formatAmount } from '../components/ui';
+import { Avatar, formatAmount } from '../components/ui';
 
 function EditField({ label, value, onSave, placeholder, type = 'text' }) {
   const [editing, setEditing] = useState(false);
@@ -57,7 +57,6 @@ function EditField({ label, value, onSave, placeholder, type = 'text' }) {
 export default function ProfileScreen() {
   const { state, dispatch, signOut, updateProfile } = useStore();
   const { currentUser, expenses, trips } = state;
-  const [exportSheet, setExportSheet] = useState(false);
   const [saveError, setSaveError] = useState('');
 
   const uid = currentUser?.id;
@@ -187,22 +186,14 @@ export default function ProfileScreen() {
         <div className="card" style={{ padding: '4px 0' }}>
           <p className="section-title" style={{ padding: '10px 16px 4px' }}>Data</p>
           {[
-            { label: 'Export Data', sub: 'Download your expenses', onPress: () => setExportSheet(true) },
             { label: 'About ASplit', sub: 'Version 1.0.0' },
             { label: 'Privacy Policy' },
           ].map((item, i, arr) => (
             <div key={item.label}>
-              <button onClick={item.onPress} style={{
-                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '14px 16px', background: 'none', border: 'none',
-                cursor: item.onPress ? 'pointer' : 'default', WebkitTapHighlightColor: 'transparent',
-              }}>
-                <div style={{ textAlign: 'left' }}>
-                  <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>{item.label}</p>
-                  {item.sub && <p className="t-caption c-3">{item.sub}</p>}
-                </div>
-                {item.onPress && <Download size={16} color="var(--accent)" />}
-              </button>
+              <div style={{ padding: '14px 16px' }}>
+                <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>{item.label}</p>
+                {item.sub && <p className="t-caption c-3">{item.sub}</p>}
+              </div>
               {i < arr.length - 1 && <div className="divider" style={{ margin: '0 16px' }} />}
             </div>
           ))}
@@ -222,31 +213,6 @@ export default function ProfileScreen() {
         </div>
 
       </div>
-
-      {/* Export Sheet */}
-      <BottomSheet open={exportSheet} onClose={() => setExportSheet(false)} title="Export Data">
-        <div style={{ padding: '8px 20px 24px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {[
-            { label: 'Expense Report',    sub: 'All expenses with details' },
-            { label: 'Settlement Report', sub: 'Who owes whom' },
-            { label: 'Member Report',     sub: 'Per-person breakdown' },
-            { label: 'Export as CSV',     sub: 'Spreadsheet format' },
-            { label: 'Export as PDF',     sub: 'Printable report' },
-          ].map(item => (
-            <button key={item.label} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '14px 16px', borderRadius: 12, background: 'var(--bg)',
-              border: 'none', cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
-            }}>
-              <div>
-                <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', textAlign: 'left' }}>{item.label}</p>
-                <p className="t-caption c-3">{item.sub}</p>
-              </div>
-              <Download size={16} color="var(--accent)" />
-            </button>
-          ))}
-        </div>
-      </BottomSheet>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
