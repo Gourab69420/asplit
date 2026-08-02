@@ -82,8 +82,9 @@ export default function ProfileScreen() {
     return sum;
   }, 0);
 
-  // Final cost = your share - what you'll receive + what you'll pay
-  const netCost = totalShare - netSettlement;
+  // toReceive / toPay
+  const toReceive = netSettlement > 0 ? netSettlement : 0;
+  const toPay     = netSettlement < 0 ? -netSettlement : 0;
 
   const handleUpdate = async (field, value) => {
     setSaveError('');
@@ -159,10 +160,11 @@ export default function ProfileScreen() {
           <p className="section-title" style={{ padding: '10px 16px 4px' }}>Financial Summary</p>
 
           {[
-            { label: 'Total Paid Upfront',   value: totalPaid,      sub: 'Amount you paid for others',         color: 'var(--text)' },
-            { label: 'Your Actual Share',    value: totalShare,     sub: 'What you owe across all expenses',   color: 'var(--text)' },
-            { label: 'Pending Settlements',  value: Math.abs(netSettlement), sub: netSettlement >= 0 ? 'You will receive this' : 'You still need to pay this', color: netSettlement >= 0 ? 'var(--success)' : 'var(--danger)' },
-            { label: 'Net Final Cost',       value: Math.max(0, netCost),   sub: 'Your real expense after all settlements', color: 'var(--accent)', bold: true },
+            { label: 'Total Paid Upfront',  value: totalPaid,   sub: 'Amount you paid for others',       color: 'var(--text)' },
+            { label: 'Your Actual Share',   value: totalShare,  sub: 'Your split across all expenses',   color: 'var(--text)' },
+            { label: 'You Will Receive',    value: toReceive,   sub: 'Pending incoming settlements',     color: 'var(--success)' },
+            { label: 'You Still Owe',       value: toPay,       sub: 'Pending outgoing settlements',     color: toPay > 0 ? 'var(--danger)' : 'var(--text-3)' },
+            { label: 'Net Final Cost',      value: totalShare,  sub: 'Your real expense after settling', color: 'var(--accent)', bold: true },
           ].map((item, i, arr) => (
             <div key={item.label}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px' }}>
