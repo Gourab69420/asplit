@@ -60,9 +60,30 @@ export default function ProfileScreen() {
   const [saveError, setSaveError] = useState('');
 
   const uid = currentUser?.id;
-  const totalSpent = expenses
+  const { getSettlements, getTripMembers } = useStore();
+
+  // Total you paid upfront
+  const totalPaid = expenses
     .filter(e => e.paidBy.some(p => p.memberId === uid))
     .reduce((s, e) => s + e.amount, 0);
+
+  // Your actual share across all expenses
+  const totalShare = expenses
+    .filter(e => e.splitBetween.includes(uid))
+    .reduce((s, e) => s + e.amount / (e.splitBetween.length || 1), 0);
+
+  // Net pending settlements across all trips (+ = you receive, - = you owe)
+  const netSettlement = trips.reduce((sum, trip) => {
+    const { settlements } = getSettlements(trip.id);
+    settlements.forEach(s => {
+      if (s.from === uid) sum -= s.amount;
+      if (s.to   === uid) sum += s.amount;
+    });
+    return sum;
+  }, 0);
+
+  // Final cost = your share - what you'll receive + what you'll pay
+  const netCost = totalShare - netSettlement;
 
   const handleUpdate = async (field, value) => {
     setSaveError('');
@@ -110,7 +131,7 @@ export default function ProfileScreen() {
           {[
             { label: 'Trips',    value: trips.length },
             { label: 'Expenses', value: expenses.length },
-            { label: 'Paid',     value: formatAmount(totalSpent) },
+            { label: 'Paid',     value: formatAmount(totalPaid) },
           ].map(s => (
             <div key={s.label} className="flex-1" style={{ background: 'var(--bg)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
               <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>{s.value}</p>
@@ -132,6 +153,31 @@ export default function ProfileScreen() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Financial Summary */}
+        <div className="card" style={{ padding: '4px 0' }}>
+          <p className="section-title" style={{ padding: '10px 16px 4px' }}>Financial Summary</p>
+
+          {[
+            { label: 'Total Paid Upfront',   value: totalPaid,      sub: 'Amount you paid for others',         color: 'var(--text)' },
+            { label: 'Your Actual Share',    value: totalShare,     sub: 'What you owe across all expenses',   color: 'var(--text)' },
+            { label: 'Pending Settlements',  value: Math.abs(netSettlement), sub: netSettlement >= 0 ? 'You will receive this' : 'You still need to pay this', color: netSettlement >= 0 ? 'var(--success)' : 'var(--danger)' },
+            { label: 'Net Final Cost',       value: Math.max(0, netCost),   sub: 'Your real expense after all settlements', color: 'var(--accent)', bold: true },
+          ].map((item, i, arr) => (
+            <div key={item.label}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px' }}>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: item.bold ? 600 : 500, color: 'var(--text)' }}>{item.label}</p>
+                  <p className="t-caption c-3">{item.sub}</p>
+                </div>
+                <p style={{ fontSize: 15, fontWeight: item.bold ? 700 : 600, color: item.color, fontVariantNumeric: 'tabular-nums' }}>
+                  {formatAmount(item.value)}
+                </p>
+              </div>
+              {i < arr.length - 1 && <div className="divider" style={{ margin: '0 16px' }} />}
+            </div>
+          ))}
+        </div>
 
         {/* Account — editable */}
         <div className="card" style={{ padding: '4px 0' }}>
