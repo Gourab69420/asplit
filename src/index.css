@@ -236,16 +236,15 @@ body {
 
 /* FAB */
 .fab {
-  position: fixed; bottom: calc(var(--nav-h) + var(--safe-bottom) + 16px); right: 50%;
-  transform: translateX(calc(50% - 20px + 220px));
-  width: 52px; height: 52px; border-radius: 50%;
+  position: fixed; bottom: calc(var(--nav-h) + var(--safe-bottom) + 16px); right: 20px;
+  width: 56px; height: 56px; border-radius: 50%;
   background: var(--accent); color: #fff; border: none;
   box-shadow: 0 4px 16px rgba(37,99,235,0.35), 0 2px 6px rgba(37,99,235,0.2);
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; z-index: 50; transition: all 0.2s ease;
+  cursor: pointer; z-index: 50; transition: transform 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 }
-.fab:active { transform: translateX(calc(50% - 20px + 220px)) scale(0.93); }
+.fab:active { transform: scale(0.93); }
 
 /* Scrollable row */
 .scroll-row { display: flex; gap: 12px; overflow-x: auto; padding: 0 20px; scrollbar-width: none; }
