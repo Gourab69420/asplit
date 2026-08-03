@@ -36,9 +36,25 @@ export function BottomSheet({ open, onClose, title, children }) {
     <AnimatePresence>
       {open && (
         <>
-          <motion.div className="overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
-          <motion.div className="bottom-sheet" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 300 }}>
-            <div className="sheet-handle" />
+          <motion.div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, backdropFilter: 'blur(2px)' }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+          <motion.div
+            style={{
+              position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+              width: '100%', maxWidth: 480,
+              background: 'var(--surface)',
+              borderRadius: '20px 20px 0 0',
+              zIndex: 101,
+              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
+              maxHeight: '90dvh', overflowY: 'auto',
+            }}
+            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+          >
+            <div style={{ width: 36, height: 4, background: 'var(--border)', borderRadius: 2, margin: '12px auto 4px' }} />
             {title && (
               <div className="flex items-center justify-between px-5 py-3">
                 <span className="t-heading">{title}</span>

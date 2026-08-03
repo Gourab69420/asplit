@@ -44,9 +44,15 @@ function AppInner() {
   const { state } = useStore();
   const { screen, currentUser, loading } = state;
 
+  const darkVars = state.darkMode ? {
+    '--bg': '#0f0f10', '--surface': '#1a1a1e', '--surface-2': '#26262c',
+    '--border': '#2e2e36', '--border-light': '#232329',
+    '--text': '#f4f4f5', '--text-2': '#a1a1aa', '--text-3': '#71717a',
+  } : {};
+
   if (loading) {
     return (
-      <div className="app-shell">
+      <div className="app-shell" style={darkVars}>
         <LoadingSplash />
       </div>
     );
@@ -54,7 +60,7 @@ function AppInner() {
 
   if (!currentUser || screen === 'login') {
     return (
-      <div className="app-shell">
+      <div className="app-shell" style={darkVars}>
         <AnimatePresence mode="wait">
           <motion.div key="login" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <LoginScreen />
@@ -68,7 +74,7 @@ function AppInner() {
   const isTab = TAB_SCREENS.has(screen);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={darkVars}>
       <AnimatePresence mode="wait">
         <motion.div
           key={screen}
