@@ -50,9 +50,18 @@ function AppInner() {
     '--text': '#f4f4f5', '--text-2': '#a1a1aa', '--text-3': '#71717a',
   } : {};
 
+  // Apply dark vars to :root so fixed-position elements (sheets, nav) also get them
+  const root = document.documentElement;
+  if (state.darkMode) {
+    Object.entries(darkVars).forEach(([k, v]) => root.style.setProperty(k, v));
+  } else {
+    ['--bg','--surface','--surface-2','--border','--border-light','--text','--text-2','--text-3']
+      .forEach(k => root.style.removeProperty(k));
+  }
+
   if (loading) {
     return (
-      <div className="app-shell" style={darkVars}>
+      <div className="app-shell">
         <LoadingSplash />
       </div>
     );
@@ -60,7 +69,7 @@ function AppInner() {
 
   if (!currentUser || screen === 'login') {
     return (
-      <div className="app-shell" style={darkVars}>
+      <div className="app-shell">
         <AnimatePresence mode="wait">
           <motion.div key="login" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <LoginScreen />
@@ -74,7 +83,7 @@ function AppInner() {
   const isTab = TAB_SCREENS.has(screen);
 
   return (
-    <div className="app-shell" style={darkVars}>
+    <div className="app-shell">
       <AnimatePresence mode="wait">
         <motion.div
           key={screen}

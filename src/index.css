@@ -55,7 +55,7 @@ body {
   min-height: 100dvh;
   background: var(--bg);
   position: relative;
-  overflow: hidden;
+  overflow-x: clip;
   display: flex;
   flex-direction: column;
   box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 24px 64px rgba(0,0,0,0.12);
