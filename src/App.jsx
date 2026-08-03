@@ -44,21 +44,6 @@ function AppInner() {
   const { state } = useStore();
   const { screen, currentUser, loading } = state;
 
-  const darkVars = state.darkMode ? {
-    '--bg': '#0f0f10', '--surface': '#1a1a1e', '--surface-2': '#26262c',
-    '--border': '#2e2e36', '--border-light': '#232329',
-    '--text': '#f4f4f5', '--text-2': '#a1a1aa', '--text-3': '#71717a',
-  } : {};
-
-  // Apply dark vars to :root so fixed-position elements (sheets, nav) also get them
-  const root = document.documentElement;
-  if (state.darkMode) {
-    Object.entries(darkVars).forEach(([k, v]) => root.style.setProperty(k, v));
-  } else {
-    ['--bg','--surface','--surface-2','--border','--border-light','--text','--text-2','--text-3']
-      .forEach(k => root.style.removeProperty(k));
-  }
-
   if (loading) {
     return (
       <div className="app-shell">
@@ -84,6 +69,11 @@ function AppInner() {
 
   return (
     <div className="app-shell">
+      {!state.isOnline && (
+        <div style={{ background: '#d97706', color: '#fff', fontSize: 12, fontWeight: 600, textAlign: 'center', padding: '6px', letterSpacing: 0.3, zIndex: 200, flexShrink: 0 }}>
+          ⚡ Offline — changes will sync when connected
+        </div>
+      )}
       <AnimatePresence mode="wait">
         <motion.div
           key={screen}
