@@ -14,14 +14,15 @@ export default function BottomNav() {
 
   return (
     <nav style={{
-      position: 'sticky', bottom: 0, left: 0, right: 0,
+      position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+      width: '100%', maxWidth: 480,
       height: 'calc(var(--nav-h) + var(--safe-bottom))',
       background: 'rgba(255,255,255,0.95)',
       backdropFilter: 'blur(12px)',
       borderTop: '1px solid var(--border-light)',
       display: 'flex', alignItems: 'flex-start', justifyContent: 'space-around',
       paddingTop: 8, paddingBottom: 'var(--safe-bottom)',
-      zIndex: 40, flexShrink: 0,
+      zIndex: 40,
     }}>
       {TABS.map(({ id, label, Icon }) => {
         const isActive = active === id || (id === 'home' && active === 'home');
