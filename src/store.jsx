@@ -134,6 +134,8 @@ export function StoreProvider({ children }) {
   // ── apply dark mode to :root ───────────────────────────────
   useEffect(() => {
     const root = document.documentElement;
+    const body = document.body;
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
     if (state.darkMode) {
       root.style.setProperty('--bg', '#0f0f10');
       root.style.setProperty('--surface', '#1a1a1e');
@@ -143,9 +145,15 @@ export function StoreProvider({ children }) {
       root.style.setProperty('--text', '#f4f4f5');
       root.style.setProperty('--text-2', '#a1a1aa');
       root.style.setProperty('--text-3', '#71717a');
+      body.style.background = '#0f0f10';
+      root.style.background = '#0f0f10';
+      if (metaTheme) metaTheme.setAttribute('content', '#0f0f10');
     } else {
       ['--bg','--surface','--surface-2','--border','--border-light','--text','--text-2','--text-3']
         .forEach(k => root.style.removeProperty(k));
+      body.style.background = '';
+      root.style.background = '';
+      if (metaTheme) metaTheme.setAttribute('content', '#ffffff');
     }
   }, [state.darkMode]);
 

@@ -30,23 +30,31 @@
   --safe-top: env(safe-area-inset-top, 0px);
 }
 
-html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  background: #f7f7f8;
+}
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: var(--bg);
+  background: #f7f7f8;
   color: var(--text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
+  /* fill safe areas top/bottom with same bg */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  min-height: 100dvh;
 }
 
 #root {
   display: flex;
   justify-content: center;
   min-height: 100dvh;
-  background: #e5e5e8;
+  background: inherit;
 }
 
 .app-shell {
@@ -66,7 +74,6 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   padding-bottom: calc(var(--nav-h) + var(--safe-bottom) + 16px);
-  padding-top: var(--safe-top);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
