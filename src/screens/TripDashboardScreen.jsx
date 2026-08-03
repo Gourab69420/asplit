@@ -171,16 +171,24 @@ function AddMemberSheet({ open, onClose, tripId, existingMemberIds }) {
 
 // ── Trip Settings Sheet ───────────────────────────────────────
 function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements }) {
-  const { nav, dispatch } = useStore();
+  const { state, nav, dispatch } = useStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const isCreator = trip.createdBy === state.currentUser?.id;
+  const isSettled = settlements.length === 0;
 
   const handleDelete = async () => {
+    setDeleting(true);
     try {
+      await supabase.from('expenses').delete().eq('trip_id', trip.id);
+      await supabase.from('trip_members').delete().eq('trip_id', trip.id);
       await supabase.from('trips').delete().eq('id', trip.id);
-      dispatch({ type: 'SET_TRIPS', trips: [] });
+      dispatch({ type: 'DELETE_TRIP', tripId: trip.id });
       onClose();
       nav('home');
     } catch (e) { console.error(e); }
+    setDeleting(false);
   };
 
   const exportCSV = () => {
@@ -231,6 +239,7 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
   return (
     <BottomSheet open={open} onClose={onClose} title="Trip Settings">
       <div style={{ padding: '8px 20px 32px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+
         <div className="card" style={{ padding: '4px 0' }}>
           {settingsItems.map(item => (
             <button key={item.label} onClick={item.onPress} style={{
@@ -246,27 +255,38 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
           ))}
         </div>
 
-        <div className="card" style={{ padding: '4px 0' }}>
-          {!confirmDelete ? (
-            <button onClick={() => setConfirmDelete(true)} style={{
-              width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
-              background: 'none', border: 'none', cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
-            }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--danger-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Trash2 size={17} color="var(--danger)" strokeWidth={1.8} />
+        {/* Delete — creator only */}
+        {isCreator && (
+          <div className="card" style={{ padding: '4px 0' }}>
+            {!confirmDelete ? (
+              <button onClick={() => setConfirmDelete(true)} style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
+                background: 'none', border: 'none', cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+              }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--danger-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Trash2 size={17} color="var(--danger)" strokeWidth={1.8} />
+                </div>
+                <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--danger)', flex: 1, textAlign: 'left' }}>Delete Trip</p>
+              </button>
+            ) : (
+              <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {!isSettled && (
+                  <div style={{ background: 'var(--warning-light)', borderRadius: 10, padding: '10px 14px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                    <AlertCircle size={14} color="var(--warning)" style={{ marginTop: 2, flexShrink: 0 }} />
+                    <p style={{ fontSize: 13, color: 'var(--warning)' }}>{settlements.length} unsettled payment{settlements.length > 1 ? 's' : ''} remain. Make sure everyone has paid before deleting.</p>
+                  </div>
+                )}
+                <p style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500 }}>Delete "{trip.name}"? All expenses and member data will be permanently removed.</p>
+                <div className="flex gap-3">
+                  <button className="btn btn-outline flex-1 btn-sm" onClick={() => setConfirmDelete(false)}>Cancel</button>
+                  <button className="btn btn-danger flex-1 btn-sm" onClick={handleDelete} disabled={deleting}>
+                    {deleting ? 'Deleting...' : isSettled ? 'Delete Trip' : 'Delete Anyway'}
+                  </button>
+                </div>
               </div>
-              <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--danger)', flex: 1, textAlign: 'left' }}>Delete Trip</p>
-            </button>
-          ) : (
-            <div style={{ padding: '16px' }}>
-              <p style={{ fontSize: 14, color: 'var(--text)', marginBottom: 12, fontWeight: 500 }}>Delete "{trip.name}"? This cannot be undone.</p>
-              <div className="flex gap-3">
-                <button className="btn btn-outline flex-1 btn-sm" onClick={() => setConfirmDelete(false)}>Cancel</button>
-                <button className="btn btn-danger flex-1 btn-sm" onClick={handleDelete}>Delete</button>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </BottomSheet>
   );

@@ -102,6 +102,14 @@ function reducer(state, action) {
     case 'ADD_EXPENSE':     return { ...state, expenses: [action.expense, ...state.expenses] };
     case 'REPLACE_EXPENSE': return { ...state, expenses: state.expenses.map(e => e.id === action.tempId ? action.expense : e) };
     case 'DELETE_EXPENSE':  return { ...state, expenses: state.expenses.filter(e => e.id !== action.id) };
+    case 'DELETE_TRIP': {
+      const remaining = state.trips.filter(t => t.id !== action.tripId);
+      const remainingExpenses = state.expenses.filter(e => e.tripId !== action.tripId);
+      // remove members who no longer belong to any remaining trip
+      const usedMemberIds = new Set(remaining.flatMap(t => t.members || []));
+      const remainingMembers = state.members.filter(m => usedMemberIds.has(m.id) || m.id === state.currentUser?.id);
+      return { ...state, trips: remaining, expenses: remainingExpenses, members: remainingMembers };
+    }
     case 'UPDATE_PROFILE':  return { ...state, currentUser: { ...state.currentUser, ...action.data } };
     case 'TOGGLE_DARK':     return { ...state, darkMode: !state.darkMode };
     case 'SET_ONLINE':      return { ...state, isOnline: action.online };
