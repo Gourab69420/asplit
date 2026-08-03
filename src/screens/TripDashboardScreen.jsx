@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, UserPlus, Settings, ChevronRight, Hotel, Utensils, Car, ShoppingBag, Coffee, Fuel, Zap, MoreHorizontal, Trash2, Edit2, Check, X, AlertCircle, Download } from 'lucide-react';
 import { useStore, AVATAR_COLORS } from '../store';
@@ -181,10 +181,9 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      await supabase.from('expenses').delete().eq('trip_id', trip.id);
-      await supabase.from('trip_members').delete().eq('trip_id', trip.id);
-      await supabase.from('trips').delete().eq('id', trip.id);
-      dispatch({ type: 'DELETE_TRIP', tripId: trip.id });
+      const deletedAt = new Date().toISOString();
+      await supabase.from('trips').update({ deleted_at: deletedAt }).eq('id', trip.id);
+      dispatch({ type: 'DELETE_TRIP', tripId: trip.id, deletedAt });
       onClose();
       nav('home');
     } catch (e) { console.error(e); }
@@ -292,6 +291,75 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
   );
 }
 
+// ── Countdown Banner ─────────────────────────────────────────
+function DeletedBanner({ deletedAt, onExportExpenses, onExportSettlements, members, expenses, settlements, trip }) {
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    const calc = () => {
+      const expiry = new Date(deletedAt).getTime() + 48 * 60 * 60 * 1000;
+      const diff = expiry - Date.now();
+      if (diff <= 0) { setTimeLeft('Expired'); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${h}h ${m}m ${s}s`);
+    };
+    calc();
+    const t = setInterval(calc, 1000);
+    return () => clearInterval(t);
+  }, [deletedAt]);
+
+  const exportCSV = () => {
+    const rows = [
+      ['Date', 'Title', 'Category', 'Amount', 'Paid By', 'Split Between'],
+      ...expenses.map(e => [
+        e.date, e.title, e.category, e.amount,
+        e.paidBy.map(p => members.find(m => m.id === p.memberId)?.name || p.memberId).join('; '),
+        e.splitBetween.map(id => members.find(m => m.id === id)?.name || id).join('; '),
+      ]),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `${trip.name.replace(/\s+/g, '_')}_expenses.csv`;
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+
+  const exportSettlementsCSV = () => {
+    const rows = [
+      ['From', 'To', 'Amount'],
+      ...settlements.map(s => [
+        members.find(m => m.id === s.from)?.name || s.from,
+        members.find(m => m.id === s.to)?.name || s.to,
+        s.amount,
+      ]),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `${trip.name.replace(/\s+/g, '_')}_settlements.csv`;
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+
+  return (
+    <div style={{ margin: '12px 20px', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--danger-light)' }}>
+      <div style={{ background: 'var(--danger)', padding: '12px 16px' }}>
+        <p style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>⚠️ This trip has been deleted</p>
+        <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 }}>Data available for download for: <strong>{timeLeft}</strong></p>
+      </div>
+      <div style={{ background: 'var(--danger-light)', padding: '12px 16px', display: 'flex', gap: 8 }}>
+        <button className="btn btn-sm btn-outline flex-1" style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }} onClick={exportCSV}>
+          <Download size={13} /> Expenses
+        </button>
+        <button className="btn btn-sm btn-outline flex-1" style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }} onClick={exportSettlementsCSV}>
+          <Download size={13} /> Settlements
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Screen ───────────────────────────────────────────────
 export default function TripDashboardScreen() {
   const { state, nav, getTripExpenses, getTripMembers, getTripTotal, getSettlements } = useStore();
@@ -303,6 +371,7 @@ export default function TripDashboardScreen() {
 
   if (!trip) return null;
 
+  const isDeleted = !!trip.deletedAt;
   const members = getTripMembers(trip);
   const expenses = getTripExpenses(tripId);
   const total = getTripTotal(tripId);
@@ -325,9 +394,11 @@ export default function TripDashboardScreen() {
             <ArrowLeft size={20} />
           </button>
           <div className="flex gap-2">
-            <button className="btn btn-ghost btn-icon" style={{ color: '#fff', background: 'rgba(255,255,255,0.15)' }} onClick={() => setAddMemberOpen(true)}>
-              <UserPlus size={18} />
-            </button>
+            {!isDeleted && (
+              <button className="btn btn-ghost btn-icon" style={{ color: '#fff', background: 'rgba(255,255,255,0.15)' }} onClick={() => setAddMemberOpen(true)}>
+                <UserPlus size={18} />
+              </button>
+            )}
             <button className="btn btn-ghost btn-icon" style={{ color: '#fff', background: 'rgba(255,255,255,0.15)' }} onClick={() => setSettingsOpen(true)}>
               <Settings size={18} />
             </button>
@@ -339,6 +410,17 @@ export default function TripDashboardScreen() {
         <p style={{ color: '#fff', fontSize: 22, fontWeight: 700, letterSpacing: -0.3, marginBottom: 12 }}>{trip.name}</p>
         <AvatarStack members={members} size="sm" />
       </div>
+
+      {/* Deleted banner */}
+      {isDeleted && (
+        <DeletedBanner
+          deletedAt={trip.deletedAt}
+          trip={trip}
+          members={members}
+          expenses={expenses}
+          settlements={settlements}
+        />
+      )}
 
       {/* Stats */}
       <div style={{ padding: '16px 20px', display: 'flex', gap: 10 }}>
@@ -371,7 +453,7 @@ export default function TripDashboardScreen() {
         {tab === 'expenses' && (
           <>
             {expenses.length === 0 ? (
-              <EmptyState icon={Receipt} title="No expenses yet" subtitle="Add your first expense to get started" action="Add Expense" onAction={() => nav('addExpense', { tripId })} />
+              <EmptyState icon={Receipt} title="No expenses yet" subtitle="Add your first expense to get started" action={isDeleted ? null : 'Add Expense'} onAction={() => nav('addExpense', { tripId })} />
             ) : (
               Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a)).map(([date, exps]) => (
                 <div key={date}>
@@ -443,10 +525,12 @@ export default function TripDashboardScreen() {
         )}
       </div>
 
-      {/* FAB */}
-      <button className="fab" onClick={() => nav('addExpense', { tripId })}>
-        <Plus size={22} strokeWidth={2.5} />
-      </button>
+      {/* FAB - hidden for deleted trips */}
+      {!isDeleted && (
+        <button className="fab" onClick={() => nav('addExpense', { tripId })}>
+          <Plus size={22} strokeWidth={2.5} />
+        </button>
+      )}
 
       {/* Sheets */}
       <AddMemberSheet

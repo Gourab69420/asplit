@@ -18,7 +18,8 @@ function mapProfile(row) {
 function mapTrip(row, memberIds = []) {
   return { id: row.id, name: row.name, description: row.description || '', currency: row.currency || 'INR',
     startDate: row.start_date || '', endDate: row.end_date || '', status: row.status || 'upcoming',
-    coverColor: row.cover_color || '#2563eb', createdBy: row.created_by, members: memberIds };
+    coverColor: row.cover_color || '#2563eb', createdBy: row.created_by, members: memberIds,
+    deletedAt: row.deleted_at || null };
 }
 function mapExpense(row) {
   return { id: row.id, tripId: row.trip_id, title: row.title, amount: Number(row.amount),
@@ -103,12 +104,14 @@ function reducer(state, action) {
     case 'REPLACE_EXPENSE': return { ...state, expenses: state.expenses.map(e => e.id === action.tempId ? action.expense : e) };
     case 'DELETE_EXPENSE':  return { ...state, expenses: state.expenses.filter(e => e.id !== action.id) };
     case 'DELETE_TRIP': {
-      const remaining = state.trips.filter(t => t.id !== action.tripId);
-      const remainingExpenses = state.expenses.filter(e => e.tripId !== action.tripId);
-      // remove members who no longer belong to any remaining trip
-      const usedMemberIds = new Set(remaining.flatMap(t => t.members || []));
+      // Soft-delete: mark trip as deleted, keep expenses for 48h download
+      const deletedAt = action.deletedAt || new Date().toISOString();
+      const remaining = state.trips.map(t => t.id === action.tripId ? { ...t, deletedAt } : t);
+      // remove members who no longer belong to any non-deleted trip
+      const activeTrips = remaining.filter(t => !t.deletedAt);
+      const usedMemberIds = new Set(activeTrips.flatMap(t => t.members || []));
       const remainingMembers = state.members.filter(m => usedMemberIds.has(m.id) || m.id === state.currentUser?.id);
-      return { ...state, trips: remaining, expenses: remainingExpenses, members: remainingMembers };
+      return { ...state, trips: remaining, members: remainingMembers };
     }
     case 'UPDATE_PROFILE':  return { ...state, currentUser: { ...state.currentUser, ...action.data } };
     case 'TOGGLE_DARK':     return { ...state, darkMode: !state.darkMode };

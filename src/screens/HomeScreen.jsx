@@ -60,6 +60,9 @@ export default function HomeScreen() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
+  const activeTrips  = trips.filter(t => !t.deletedAt);
+  const deletedTrips = trips.filter(t => !!t.deletedAt);
+
   return (
     <div className="screen">
       {/* Header */}
@@ -93,9 +96,9 @@ export default function HomeScreen() {
       <div style={{ padding: '16px 20px', background: 'var(--surface)', marginBottom: 8, borderBottom: '1px solid var(--border-light)' }}>
         <div className="flex gap-3">
           {[
-            { label: 'Total Trips', value: trips.length, color: 'var(--accent)' },
-            { label: 'Active', value: trips.filter(t => t.status === 'active').length, color: 'var(--success)' },
-            { label: 'Pending', value: trips.reduce((s, t) => s + (t.status === 'active' ? 1 : 0), 0), color: 'var(--warning)' },
+            { label: 'Total Trips', value: activeTrips.length, color: 'var(--accent)' },
+            { label: 'Active', value: activeTrips.filter(t => t.status === 'active').length, color: 'var(--success)' },
+            { label: 'Pending', value: activeTrips.reduce((s, t) => s + (t.status === 'active' ? 1 : 0), 0), color: 'var(--warning)' },
           ].map(item => (
             <div key={item.label} className="flex-1" style={{ background: 'var(--bg)', borderRadius: 10, padding: '10px 12px' }}>
               <p style={{ fontSize: 20, fontWeight: 700, color: item.color, fontVariantNumeric: 'tabular-nums' }}>{item.value}</p>
@@ -115,10 +118,38 @@ export default function HomeScreen() {
         </div>
 
         <motion.div variants={container} initial="hidden" animate="show">
-          {trips.map(trip => (
+          {activeTrips.map(trip => (
             <TripCard key={trip.id} trip={trip} onPress={() => nav('tripDashboard', { tripId: trip.id })} />
           ))}
         </motion.div>
+
+        {/* Deleted trips — read-only with countdown */}
+        {deletedTrips.length > 0 && (
+          <>
+            <p className="t-caption c-3" style={{ marginTop: 20, marginBottom: 8 }}>RECENTLY DELETED</p>
+            {deletedTrips.map(trip => {
+              const expiry = new Date(trip.deletedAt).getTime() + 48 * 60 * 60 * 1000;
+              const hoursLeft = Math.max(0, Math.ceil((expiry - Date.now()) / 3600000));
+              return (
+                <motion.div key={trip.id} variants={fadeUp} className="card" style={{ padding: '14px 16px', marginBottom: 12, cursor: 'pointer', opacity: 0.7, borderLeft: '3px solid var(--danger)' }}
+                  onClick={() => nav('tripDashboard', { tripId: trip.id })}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: trip.coverColor, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.6 }}>
+                        <span style={{ fontSize: 16 }}>✈</span>
+                      </div>
+                      <div>
+                        <p className="t-label" style={{ textDecoration: 'line-through' }}>{trip.name}</p>
+                        <p className="t-caption" style={{ color: 'var(--danger)' }}>Deleted · {hoursLeft}h left to download</p>
+                      </div>
+                    </div>
+                    <span className="badge badge-danger">Deleted</span>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </>
+        )}
       </div>
 
       {/* FAB */}
