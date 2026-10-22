@@ -28,10 +28,6 @@ function mapExpense(row) {
     date: row.expense_date || '', time: row.expense_time?.slice(0, 5) || '',
     _pending: row._pending || false };
 }
-function mapJoinRequest(row) {
-  return { id: row.id, tripId: row.trip_id, userId: row.user_id, status: row.status,
-    requestedAt: row.requested_at, decidedAt: row.decided_at, decidedBy: row.decided_by };
-}
 function calcSettlements(members, expenses) {
   const balances = {};
   members.forEach(m => { balances[m.id] = 0; });
@@ -68,8 +64,8 @@ function saveCache(state) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
       trips: state.trips, members: state.members,
-      expenses: state.expenses, joinRequests: state.joinRequests,
-      darkMode: state.darkMode, currentUser: state.currentUser,
+      expenses: state.expenses, darkMode: state.darkMode,
+      currentUser: state.currentUser,
     }));
   } catch {}
 }
@@ -87,7 +83,6 @@ const initialState = {
   trips:       cache?.trips       || [],
   members:     cache?.members     || [],
   expenses:    cache?.expenses    || [],
-  joinRequests: cache?.joinRequests || [],
   currentUser: cache?.currentUser || null,
   darkMode:    cache?.darkMode    ?? false,
   notifications: 0, loading: true,
@@ -99,21 +94,20 @@ function reducer(state, action) {
   switch (action.type) {
     case 'NAV':             return { ...state, screen: action.screen, screenParams: action.params || {} };
     case 'SET_USER':        return { ...state, currentUser: action.user, screen: action.user ? 'home' : 'login', loading: false };
-    case 'SIGN_OUT':        return { ...initialState, trips: [], members: [], expenses: [], joinRequests: [], currentUser: null, screen: 'login', loading: false };
+    case 'SIGN_OUT':        return { ...initialState, trips: [], members: [], expenses: [], currentUser: null, screen: 'login', loading: false };
     case 'SET_TRIPS':       return { ...state, trips: action.trips };
     case 'SET_MEMBERS':     return { ...state, members: action.members };
     case 'SET_EXPENSES':    return { ...state, expenses: action.expenses };
-    case 'SET_JOIN_REQUESTS': return { ...state, joinRequests: action.requests };
-    case 'ADD_JOIN_REQUEST': return { ...state, joinRequests: [action.request, ...state.joinRequests] };
-    case 'UPDATE_JOIN_REQUEST': return { ...state, joinRequests: state.joinRequests.map(r => r.id === action.id ? { ...r, ...action.data } : r) };
     case 'ADD_TRIP':        return { ...state, trips: [action.trip, ...state.trips] };
     case 'ADD_TRIP_MEMBER': return { ...state, trips: state.trips.map(t => t.id === action.tripId ? { ...t, members: [...(t.members || []), action.userId] } : t) };
     case 'ADD_EXPENSE':     return { ...state, expenses: [action.expense, ...state.expenses] };
     case 'REPLACE_EXPENSE': return { ...state, expenses: state.expenses.map(e => e.id === action.tempId ? action.expense : e) };
     case 'DELETE_EXPENSE':  return { ...state, expenses: state.expenses.filter(e => e.id !== action.id) };
     case 'DELETE_TRIP': {
+      // Soft-delete: mark trip as deleted, keep expenses for 48h download
       const deletedAt = action.deletedAt || new Date().toISOString();
       const remaining = state.trips.map(t => t.id === action.tripId ? { ...t, deletedAt } : t);
+      // remove members who no longer belong to any non-deleted trip
       const activeTrips = remaining.filter(t => !t.deletedAt);
       const usedMemberIds = new Set(activeTrips.flatMap(t => t.members || []));
       const remainingMembers = state.members.filter(m => usedMemberIds.has(m.id) || m.id === state.currentUser?.id);
@@ -272,18 +266,6 @@ export function StoreProvider({ children }) {
 
     const { data: expRows } = await supabase.from('expenses').select('*').in('trip_id', tripIds).order('expense_date', { ascending: false });
     dispatch({ type: 'SET_EXPENSES', expenses: (expRows || []).map(mapExpense) });
-
-    // Load join requests for trips where user is admin
-    const adminTripIds = memberRows.filter(r => r.role === 'admin').map(r => r.trip_id);
-    if (adminTripIds.length) {
-      const { data: reqRows } = await supabase
-        .from('join_requests')
-        .select('*')
-        .in('trip_id', adminTripIds)
-        .eq('status', 'pending')
-        .order('requested_at', { ascending: false });
-      dispatch({ type: 'SET_JOIN_REQUESTS', requests: (reqRows || []).map(mapJoinRequest) });
-    }
   }
 
   // ── auth actions ───────────────────────────────────────────
@@ -381,60 +363,11 @@ export function StoreProvider({ children }) {
     if (error) throw error;
   }, []);
 
-  // ── join request actions ──────────────────────────────────────
-  const requestJoinTrip = useCallback(async (tripId) => {
-    const userId = stateRef.current.currentUser?.id;
-    if (!userId) throw new Error('Not signed in');
-
-    // Check if already a member
-    const trip = stateRef.current.trips.find(t => t.id === tripId);
-    if (trip?.members?.includes(userId)) return { alreadyMember: true };
-
-    // Check if already requested
-    const existing = stateRef.current.joinRequests.find(r => r.tripId === tripId && r.userId === userId && r.status === 'pending');
-    if (existing) return { alreadyRequested: true };
-
-    const { data: req, error } = await supabase
-      .from('join_requests')
-      .insert({ trip_id: tripId, user_id: userId, status: 'pending' })
-      .select()
-      .single();
-
-    if (error) throw error;
-    const mapped = mapJoinRequest(req);
-    dispatch({ type: 'ADD_JOIN_REQUEST', request: mapped });
-    return { success: true, request: mapped };
-  }, []);
-
-  const approveJoinRequest = useCallback(async (requestId) => {
-    const userId = stateRef.current.currentUser?.id;
-    if (!userId) throw new Error('Not signed in');
-
-    const { error } = await supabase.rpc('approve_join_request', { p_request_id: requestId });
-    if (error) throw error;
-
-    dispatch({ type: 'UPDATE_JOIN_REQUEST', id: requestId, data: { status: 'approved', decidedAt: new Date().toISOString(), decidedBy: userId } });
-
-    // Refresh trip data to get new member
-    await loadUserData(userId);
-  }, []);
-
-  const rejectJoinRequest = useCallback(async (requestId) => {
-    const userId = stateRef.current.currentUser?.id;
-    if (!userId) throw new Error('Not signed in');
-
-    const { error } = await supabase.rpc('reject_join_request', { p_request_id: requestId });
-    if (error) throw error;
-
-    dispatch({ type: 'UPDATE_JOIN_REQUEST', id: requestId, data: { status: 'rejected', decidedAt: new Date().toISOString(), decidedBy: userId } });
-  }, []);
-
   return (
     <StoreCtx.Provider value={{
       state, dispatch, nav,
       getTripExpenses, getTripMembers, getMember, getTripTotal, getSettlements,
       signInGoogle, signOut, createTrip, addExpense, deleteExpense, updateProfile,
-      requestJoinTrip, approveJoinRequest, rejectJoinRequest,
     }}>
       {children}
     </StoreCtx.Provider>
