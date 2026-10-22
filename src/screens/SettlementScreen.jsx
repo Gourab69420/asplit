@@ -1,35 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, QrCode, Check } from 'lucide-react';
+import { ArrowLeft, Smartphone, Check } from 'lucide-react';
 import { useStore } from '../store';
 import { Avatar, formatAmount } from '../components/ui';
-
-function QRPlaceholder({ upi }) {
-  // Visual QR placeholder using SVG pattern
-  const cells = [];
-  const size = 21;
-  // Deterministic pattern from upi string
-  for (let r = 0; r < size; r++) {
-    for (let c = 0; c < size; c++) {
-      const isCorner = (r < 7 && c < 7) || (r < 7 && c >= size - 7) || (r >= size - 7 && c < 7);
-      const hash = (upi.charCodeAt((r * size + c) % upi.length) + r * 7 + c * 13) % 3;
-      const filled = isCorner || hash === 0;
-      cells.push({ r, c, filled });
-    }
-  }
-  const cell = 8;
-  const pad = 16;
-  const total = size * cell + pad * 2;
-
-  return (
-    <svg width={total} height={total} viewBox={`0 0 ${total} ${total}`} style={{ borderRadius: 12 }}>
-      <rect width={total} height={total} fill="white" rx="12" />
-      {cells.map(({ r, c, filled }) => filled && (
-        <rect key={`${r}-${c}`} x={pad + c * cell} y={pad + r * cell} width={cell - 1} height={cell - 1} fill="#0f0f10" rx="1" />
-      ))}
-    </svg>
-  );
-}
 
 export default function SettlementScreen() {
   const { state, nav } = useStore();
@@ -41,7 +14,8 @@ export default function SettlementScreen() {
   const { members } = state;
   const from = members.find(m => m.id === settlement.from);
   const to = members.find(m => m.id === settlement.to);
-  const upiLink = `upi://pay?pa=${to?.upi}&pn=${encodeURIComponent(to?.name || '')}&am=${settlement.amount}&cu=INR&tn=ASplit+Settlement`;
+  const isPayer = state.currentUser?.id === settlement.from;
+  const upiLink = `upi://pay?pa=${encodeURIComponent(to?.upi || '')}&pn=${encodeURIComponent(to?.name || '')}&am=${settlement.amount}&cu=INR&tn=ASplit+Settlement`;
 
   const handleMarkPaid = () => {
     setPaid(true);
@@ -74,34 +48,39 @@ export default function SettlementScreen() {
             </div>
           </div>
           <p className="t-amount c-danger" style={{ marginBottom: 4 }}>{formatAmount(settlement.amount)}</p>
-          <p className="t-caption c-3">via UPI · {to?.upi}</p>
+          <p className="t-caption c-3">{to?.upi ? `UPI · ${to.upi}` : 'Payment recipient'}</p>
         </div>
 
-        {/* QR Code */}
-        <div className="card" style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-          <p className="t-label c-2">Scan to Pay</p>
-          <div style={{ padding: 12, background: '#fff', borderRadius: 16, boxShadow: 'var(--shadow)' }}>
-            <QRPlaceholder upi={to?.upi || 'upi'} />
+        {isPayer ? (
+          <>
+            {to?.upi ? (
+              <a href={upiLink} className="btn btn-primary btn-full" style={{ textDecoration: 'none' }}>
+                <Smartphone size={18} /> Pay using UPI app
+              </a>
+            ) : (
+              <div className="card card-p t-caption c-2" style={{ textAlign: 'center' }}>
+                {to?.name || 'The recipient'} needs to add a UPI ID to their profile before you can pay through a UPI app.
+              </div>
+            )}
+
+            <AnimatePresence mode="wait">
+              {!paid ? (
+                <motion.button key="mark" className="btn btn-outline btn-full" onClick={handleMarkPaid} exit={{ opacity: 0, scale: 0.95 }}>
+                  <Check size={18} /> Mark as Paid
+                </motion.button>
+              ) : (
+                <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="btn btn-full" style={{ background: 'var(--success-light)', color: 'var(--success)', border: 'none', cursor: 'default' }}>
+                  <Check size={18} /> Payment Recorded
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        ) : (
+          <div className="card card-p" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Avatar member={from} size="sm" />
+            <p className="t-body c-2"><strong>{from?.name || 'The payer'}</strong> can open a UPI app and mark this payment as paid.</p>
           </div>
-          <p className="t-caption c-3">{to?.upi}</p>
-        </div>
-
-        {/* Actions */}
-        <a href={upiLink} className="btn btn-primary btn-full" style={{ textDecoration: 'none' }}>
-          <QrCode size={18} /> Open UPI App
-        </a>
-
-        <AnimatePresence mode="wait">
-          {!paid ? (
-            <motion.button key="mark" className="btn btn-outline btn-full" onClick={handleMarkPaid} exit={{ opacity: 0, scale: 0.95 }}>
-              <Check size={18} /> Mark as Paid
-            </motion.button>
-          ) : (
-            <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="btn btn-full" style={{ background: 'var(--success-light)', color: 'var(--success)', border: 'none', cursor: 'default' }}>
-              <Check size={18} /> Payment Recorded
-            </motion.div>
-          )}
-        </AnimatePresence>
+        )}
       </div>
     </div>
   );
