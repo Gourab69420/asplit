@@ -20,7 +20,7 @@ function mapTrip(row, memberIds = [], memberInfos = []) {
   return { id: row.id, name: row.name, description: row.description || '', currency: row.currency || 'INR',
     startDate: row.start_date || '', endDate: row.end_date || '', status: row.status || 'upcoming',
     coverColor: row.cover_color || '#2563eb', createdBy: row.created_by, members: memberIds,
-    memberRoles: membersWithRoles, deletedAt: row.deleted_at || null, inviteCode: row.invite_code || null };
+    memberRoles: membersWithRoles, deletedAt: row.deleted_at || null, inviteCode: row.invite_code };
 }
 function mapExpense(row) {
   return { id: row.id, tripId: row.trip_id, title: row.title, amount: Number(row.amount),
@@ -141,7 +141,7 @@ export function StoreProvider({ children }) {
     if (!trip?.memberRoles) return state.members.filter(m => (trip?.members || []).includes(m.id));
     return trip.memberRoles.map(mr => {
       const profile = state.members.find(m => m.id === mr.id);
-      return profile ? { ...profile, role: mr.role } : { id: mr.id, role: mr.role, name: 'Unknown', email: '', upi: '', initials: '?', color: '#2563eb' };
+      return profile ? { ...profile, role: mr.role } : { id: mr.id, role: mr.role };
     });
   };
   const getMember       = (id)     => state.members.find(m => m.id === id);
