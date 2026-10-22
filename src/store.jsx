@@ -138,14 +138,17 @@ function reducer(state, action) {
     case 'REPLACE_EXPENSE': return { ...state, expenses: state.expenses.map(e => e.id === action.tempId ? action.expense : e) };
     case 'DELETE_EXPENSE':  return { ...state, expenses: state.expenses.filter(e => e.id !== action.id) };
     case 'DELETE_TRIP': {
-      // Soft-delete: mark trip as deleted, keep expenses for 48h download
-      const deletedAt = action.deletedAt || new Date().toISOString();
-      const remaining = state.trips.map(t => t.id === action.tripId ? { ...t, deletedAt } : t);
-      // remove members who no longer belong to any non-deleted trip
-      const activeTrips = remaining.filter(t => !t.deletedAt);
-      const usedMemberIds = new Set(activeTrips.flatMap(t => t.members || []));
+      const remainingTrips = state.trips.filter(t => t.id !== action.tripId);
+      const usedMemberIds = new Set(remainingTrips.flatMap(t => t.members || []));
       const remainingMembers = state.members.filter(m => usedMemberIds.has(m.id) || m.id === state.currentUser?.id);
-      return { ...state, trips: remaining, members: remainingMembers };
+      return {
+        ...state,
+        trips: remainingTrips,
+        expenses: state.expenses.filter(expense => expense.tripId !== action.tripId),
+        settlementPayments: state.settlementPayments.filter(payment => payment.tripId !== action.tripId),
+        notifications: state.notifications.filter(notification => notification.data?.trip_id !== action.tripId),
+        members: remainingMembers,
+      };
     }
     case 'UPDATE_PROFILE':  return { ...state, currentUser: { ...state.currentUser, ...action.data } };
     case 'TOGGLE_DARK':     return { ...state, darkMode: !state.darkMode };
@@ -329,8 +332,9 @@ export function StoreProvider({ children }) {
           // replace temp expense with real one
           dispatch({ type: 'REPLACE_EXPENSE', tempId: op.tempId, expense: mapExpense(exp) });
         } else if (op.type === 'DELETE_EXPENSE') {
-          const { error } = await supabase.from('expenses').delete().eq('id', op.id);
+          const { data, error } = await supabase.from('expenses').delete().eq('id', op.id).select('id').maybeSingle();
           if (error) throw error;
+          if (!data) throw new Error('Expense not found or you do not have permission to delete it.');
         } else if (op.type === 'CREATE_TRIP') {
           const { data: trip, error } = await supabase.from('trips').insert(op.payload).select().single();
           if (error) throw error;
@@ -490,15 +494,15 @@ export function StoreProvider({ children }) {
   }, []);
 
   const deleteTrip = useCallback(async (tripId) => {
-    const deletedAt = new Date().toISOString();
-    if (!navigator.onLine || String(tripId).startsWith('tmp_')) {
-      dispatch({ type: 'DELETE_TRIP', tripId, deletedAt });
-      return deletedAt;
+    if (!navigator.onLine) throw new Error('Connect to the internet before deleting a trip.');
+    if (String(tripId).startsWith('tmp_')) {
+      dispatch({ type: 'DELETE_TRIP', tripId });
+      return;
     }
-    const { data, error } = await supabase.from('trips').update({ deleted_at: deletedAt }).eq('id', tripId).select('id, deleted_at').single();
+    const { data, error } = await supabase.from('trips').delete().eq('id', tripId).select('id').single();
     if (error) throw error;
-    dispatch({ type: 'DELETE_TRIP', tripId, deletedAt: data.deleted_at });
-    return data.deleted_at;
+    if (!data) throw new Error('Trip not found or you do not have permission to delete it.');
+    dispatch({ type: 'DELETE_TRIP', tripId });
   }, []);
 
   const createTripInvite = useCallback(async (tripId) => {
@@ -563,12 +567,22 @@ export function StoreProvider({ children }) {
   }, []);
 
   const deleteExpense = useCallback(async (id) => {
-    dispatch({ type: 'DELETE_EXPENSE', id });
+    const current = stateRef.current;
+    const expense = current.expenses.find(item => item.id === id);
+    const trip = current.trips.find(item => item.id === expense?.tripId);
+    const userId = current.currentUser?.id;
+    const canDelete = !!userId && (expense?.createdBy === userId || trip?.adminIds?.includes(userId));
+    if (!canDelete) throw new Error('Only the expense creator or a trip admin can delete this expense.');
+
     if (!navigator.onLine) {
+      dispatch({ type: 'DELETE_EXPENSE', id });
       const q = loadQueue(); q.push({ type: 'DELETE_EXPENSE', id }); saveQueue(q);
       return;
     }
-    await supabase.from('expenses').delete().eq('id', id);
+    const { data, error } = await supabase.from('expenses').delete().eq('id', id).select('id').maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error('Expense not found or you do not have permission to delete it.');
+    dispatch({ type: 'DELETE_EXPENSE', id });
   }, []);
 
   const markSettlementPaid = useCallback(async ({ id, tripId, to, amount }) => {

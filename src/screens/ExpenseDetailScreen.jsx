@@ -13,10 +13,16 @@ export default function ExpenseDetailScreen() {
   const meta = getCategoryMeta(expense.category);
   const Icon = CATEGORY_ICONS[expense.category] || MoreHorizontal;
   const equalShare = expense.amount / (expense.splitBetween.length || 1);
+  const trip = state.trips.find(item => item.id === expense.tripId);
+  const canDelete = expense.createdBy === state.currentUser?.id || trip?.adminIds?.includes(state.currentUser?.id);
 
   const handleDelete = async () => {
-    try { await deleteExpense(expenseId); } catch (e) { console.error(e); }
-    goBack();
+    try {
+      await deleteExpense(expenseId);
+      goBack();
+    } catch (error) {
+      window.alert(error.message || 'Could not delete this expense.');
+    }
   };
 
   return (
@@ -26,9 +32,11 @@ export default function ExpenseDetailScreen() {
           <button className="btn btn-ghost btn-icon" style={{ background: 'rgba(0,0,0,0.06)' }} onClick={goBack}>
             <ArrowLeft size={20} />
           </button>
-          <button className="btn btn-ghost btn-icon" style={{ background: 'rgba(0,0,0,0.06)', color: 'var(--danger)' }} onClick={handleDelete}>
-            <Trash2 size={18} />
-          </button>
+          {canDelete && (
+            <button className="btn btn-ghost btn-icon" style={{ background: 'rgba(0,0,0,0.06)', color: 'var(--danger)' }} onClick={handleDelete}>
+              <Trash2 size={18} />
+            </button>
+          )}
         </div>
         <div style={{ width: 52, height: 52, borderRadius: 14, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, boxShadow: 'var(--shadow-sm)' }}>
           <Icon size={24} color={meta.color} strokeWidth={1.8} />
