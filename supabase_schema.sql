@@ -10,6 +10,7 @@ create table if not exists profiles (
   id           uuid primary key references auth.users(id) on delete cascade,
   name         text not null default '',
   email        text not null default '',
+  phone        text not null default '',
   upi_id       text not null default '',
   avatar_color text not null default '#2563eb',
   created_at   timestamptz default now()

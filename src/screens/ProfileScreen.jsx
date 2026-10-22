@@ -206,6 +206,14 @@ export default function ProfileScreen() {
             placeholder="yourname@upi"
             onSave={v => handleUpdate('upi', v)}
           />
+          <div className="divider" style={{ margin: '0 16px' }} />
+          <EditField
+            label="Phone Number"
+            value={currentUser?.phone || ''}
+            placeholder="Include country code, e.g. +91 98765 43210"
+            type="tel"
+            onSave={v => handleUpdate('phone', v.trim())}
+          />
         </div>
 
         {/* Preferences */}

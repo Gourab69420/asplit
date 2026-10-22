@@ -12,7 +12,7 @@ function pickColor(id = '') {
   return AVATAR_COLORS[n % AVATAR_COLORS.length];
 }
 function mapProfile(row) {
-  return { id: row.id, name: row.name || '', email: row.email || '', upi: row.upi_id || '',
+  return { id: row.id, name: row.name || '', email: row.email || '', upi: row.upi_id || '', phone: row.phone || '',
     initials: getInitials(row.name), color: row.avatar_color || pickColor(row.id) };
 }
 function mapTrip(row, memberIds = [], adminIds = []) {
@@ -327,7 +327,7 @@ export function StoreProvider({ children }) {
     const mapped = mapTrip(trip, [userId], [userId]);
     dispatch({ type: 'ADD_TRIP', trip: mapped });
     const cur = stateRef.current;
-    dispatch({ type: 'SET_MEMBERS', members: cur.members.some(m => m.id === userId) ? cur.members : [...cur.members, mapProfile({ id: userId, name: cur.currentUser.name, email: cur.currentUser.email, upi_id: cur.currentUser.upi, avatar_color: cur.currentUser.color })] });
+    dispatch({ type: 'SET_MEMBERS', members: cur.members.some(m => m.id === userId) ? cur.members : [...cur.members, mapProfile({ id: userId, name: cur.currentUser.name, email: cur.currentUser.email, upi_id: cur.currentUser.upi, phone: cur.currentUser.phone, avatar_color: cur.currentUser.color })] });
     return mapped;
   }, []);
 
@@ -439,10 +439,12 @@ export function StoreProvider({ children }) {
     const patch = {};
     if (data.name  !== undefined) patch.name         = data.name;
     if (data.upi   !== undefined) patch.upi_id       = data.upi;
+    if (data.phone !== undefined) patch.phone        = data.phone;
     if (data.color !== undefined) patch.avatar_color = data.color;
     dispatch({ type: 'UPDATE_PROFILE', data: {
       name:     data.name  ?? stateRef.current.currentUser.name,
       upi:      data.upi   ?? stateRef.current.currentUser.upi,
+      phone:    data.phone ?? stateRef.current.currentUser.phone,
       color:    data.color ?? stateRef.current.currentUser.color,
       initials: data.name != null ? getInitials(data.name) : stateRef.current.currentUser.initials,
     }});

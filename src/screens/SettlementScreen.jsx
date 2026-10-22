@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Copy, Check, Smartphone } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Smartphone, MessageCircle, Phone } from 'lucide-react';
 import { useStore } from '../store';
 import { Avatar, formatAmount } from '../components/ui';
 
@@ -8,7 +8,7 @@ export default function SettlementScreen() {
   const { state, nav } = useStore();
   const { settlement, tripId } = state.screenParams;
   const [paid, setPaid] = useState(false);
-  const [upiCopied, setUpiCopied] = useState(false);
+  const [copied, setCopied] = useState('');
   const [copyError, setCopyError] = useState('');
 
   if (!settlement) return null;
@@ -22,15 +22,23 @@ export default function SettlementScreen() {
     cu: 'INR',
   });
   const upiLink = `upi://pay?${upiParams.toString()}`;
+  const phoneDigits = (to?.phone || '').replace(/\D/g, '');
+  const whatsappNumber = phoneDigits.length === 10
+    ? `91${phoneDigits}`
+    : phoneDigits.length === 11 && phoneDigits.startsWith('0')
+      ? `91${phoneDigits.slice(1)}`
+      : phoneDigits;
+  const canWhatsApp = whatsappNumber.length >= 11 && whatsappNumber.length <= 15;
+  const callNumber = (to?.phone || '').replace(/[^\d+]/g, '');
 
-  const handleCopyUPI = async () => {
+  const handleCopy = async (value, label) => {
     try {
-      await navigator.clipboard.writeText(to.upi);
-      setUpiCopied(true);
+      await navigator.clipboard.writeText(value);
+      setCopied(label);
       setCopyError('');
-      window.setTimeout(() => setUpiCopied(false), 2500);
+      window.setTimeout(() => setCopied(''), 2500);
     } catch {
-      setCopyError(`Copy unavailable. Select and copy this UPI ID: ${to.upi}`);
+      setCopyError(`Copy unavailable. Select and copy this ${label.toLowerCase()}: ${value}`);
     }
   };
 
@@ -73,25 +81,41 @@ export default function SettlementScreen() {
             {to?.upi ? (
               <>
                 <a href={upiLink} className="btn btn-primary btn-full" style={{ textDecoration: 'none' }}>
-                  <Smartphone size={18} /> Pay using UPI app
+                  <Smartphone size={18} /> Settle Up
                 </a>
                 <p className="t-caption c-3" style={{ textAlign: 'center', lineHeight: 1.6 }}>
-                  Enter the payment amount in your UPI app: {formatAmount(settlement.amount)}.
+                  Enter {formatAmount(settlement.amount)} in your UPI app.
                 </p>
-                <button type="button" onClick={handleCopyUPI} className="btn btn-outline btn-full">
-                  {upiCopied ? <Check size={18} /> : <Copy size={18} />}
-                  {upiCopied ? 'UPI ID Copied' : 'Copy UPI ID'}
+                <button type="button" onClick={() => handleCopy(to.upi, 'UPI ID')} className="btn btn-outline btn-full">
+                  {copied === 'UPI ID' ? <Check size={18} /> : <Copy size={18} />}
+                  {copied === 'UPI ID' ? 'UPI ID Copied' : 'Copy UPI ID'}
                 </button>
-                <p className="t-caption c-3" style={{ textAlign: 'center', lineHeight: 1.6 }}>
-                  If the UPI app can’t complete the payment, copy the UPI ID and pay manually. Enter {formatAmount(settlement.amount)}.
-                </p>
-                {copyError && <p role="alert" className="t-caption c-2" style={{ textAlign: 'center', userSelect: 'all' }}>{copyError}</p>}
               </>
             ) : (
               <div className="card card-p t-caption c-2" style={{ textAlign: 'center' }}>
                 {to?.name || 'The recipient'} needs to add a UPI ID to their profile before you can pay through a UPI app.
               </div>
             )}
+
+            {to?.phone && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                <button type="button" onClick={() => handleCopy(to.phone, 'Phone number')} className="btn btn-outline btn-full">
+                  {copied === 'Phone number' ? <Check size={18} /> : <Copy size={18} />}
+                  {copied === 'Phone number' ? 'Number Copied' : 'Copy Phone Number'}
+                </button>
+                {canWhatsApp && (
+                  <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer" className="btn btn-outline btn-full" style={{ textDecoration: 'none' }}>
+                    <MessageCircle size={18} /> WhatsApp
+                  </a>
+                )}
+                {callNumber && (
+                  <a href={`tel:${callNumber}`} className="btn btn-outline btn-full" style={{ textDecoration: 'none' }}>
+                    <Phone size={18} /> Call
+                  </a>
+                )}
+              </div>
+            )}
+            {copyError && <p role="alert" className="t-caption c-2" style={{ textAlign: 'center', userSelect: 'all' }}>{copyError}</p>}
 
             <AnimatePresence mode="wait">
               {!paid ? (
