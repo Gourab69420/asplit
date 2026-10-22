@@ -63,6 +63,44 @@ function ExpenseCard({ expense, members, onPress }) {
   );
 }
 
+function PendingSettlementApprovals({ payments, members, onDecision }) {
+  const [workingId, setWorkingId] = useState('');
+  const [error, setError] = useState('');
+  if (!payments.length) return null;
+
+  const decide = async (payment, approve) => {
+    setWorkingId(payment.id);
+    setError('');
+    try { await onDecision(payment.id, approve); }
+    catch (err) { setError(err.message || 'Could not update the payment request.'); }
+    finally { setWorkingId(''); }
+  };
+
+  return (
+    <div className="card" style={{ padding: 16, marginBottom: 12, border: '1px solid var(--warning)' }}>
+      <p className="t-label" style={{ marginBottom: 10 }}>Payments awaiting your approval</p>
+      {payments.map(payment => {
+        const payer = members.find(member => member.id === payment.from);
+        return (
+          <div key={payment.id} style={{ padding: '10px 0', borderTop: '1px solid var(--border-light)' }}>
+            <div className="flex items-center gap-2">
+              <Avatar member={payer} size="xs" />
+              <p className="t-body" style={{ flex: 1 }}>{payer?.name || 'A trip member'} says they paid {formatAmount(payment.amount)}</p>
+            </div>
+            <div className="flex gap-2" style={{ marginTop: 10 }}>
+              <button type="button" className="btn btn-primary btn-sm" disabled={workingId === payment.id} onClick={() => decide(payment, true)}>
+                {workingId === payment.id ? 'Saving…' : 'Approve'}
+              </button>
+              <button type="button" className="btn btn-outline btn-sm" disabled={workingId === payment.id} onClick={() => decide(payment, false)}>Decline</button>
+            </div>
+          </div>
+        );
+      })}
+      {error && <p role="alert" className="t-caption c-danger" style={{ marginTop: 8 }}>{error}</p>}
+    </div>
+  );
+}
+
 // ── Trip Settings Sheet ───────────────────────────────────────
 function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements }) {
   const { state, nav, deleteTrip } = useStore();
@@ -265,8 +303,8 @@ function DeletedBanner({ deletedAt, members, expenses, settlements, trip }) {
 
 // ── Main Screen ───────────────────────────────────────────────
 export default function TripDashboardScreen() {
-  const { state, nav, goBack, getTripExpenses, getTripMembers, getTripTotal, getSettlements } = useStore();
-  const { tripId, openJoinRequests } = state.screenParams;
+  const { state, nav, goBack, getTripExpenses, getTripMembers, getTripTotal, getSettlements, decideSettlementPayment } = useStore();
+  const { tripId, openJoinRequests, openSettleTab } = state.screenParams;
   const trip = state.trips.find(t => t.id === tripId);
   const [tab, setTab] = useState('expenses');
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -274,6 +312,9 @@ export default function TripDashboardScreen() {
   useEffect(() => {
     if (openJoinRequests) setInviteOpen(true);
   }, [tripId, openJoinRequests]);
+  useEffect(() => {
+    if (openSettleTab) setTab('settle');
+  }, [tripId, openSettleTab]);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   if (!trip) return null;
@@ -285,6 +326,7 @@ export default function TripDashboardScreen() {
   const total = getTripTotal(tripId);
   const { balances, settlements } = getSettlements(tripId);
   const myId = state.currentUser?.id;
+  const paymentApprovals = state.settlementPayments.filter(payment => payment.tripId === tripId && payment.to === myId && payment.status === 'pending');
   const myBalance = balances[myId] || 0;
 
   const grouped = expenses.reduce((acc, e) => {
@@ -397,6 +439,7 @@ export default function TripDashboardScreen() {
         {/* Settle tab */}
         {tab === 'settle' && (
           <>
+            <PendingSettlementApprovals payments={paymentApprovals} members={members} onDecision={decideSettlementPayment} />
             {settlements.length === 0 ? (
               <div className="card card-p text-center" style={{ padding: 32 }}>
                 <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--success-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>

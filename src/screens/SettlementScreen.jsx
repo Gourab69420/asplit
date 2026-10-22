@@ -7,7 +7,6 @@ import { Avatar, formatAmount } from '../components/ui';
 export default function SettlementScreen() {
   const { state, goBack, markSettlementPaid } = useStore();
   const { settlement } = state.screenParams;
-  const [paid, setPaid] = useState(false);
   const [saving, setSaving] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [paymentId] = useState(() => crypto.randomUUID());
@@ -20,6 +19,10 @@ export default function SettlementScreen() {
   const from = members.find(m => m.id === settlement.from);
   const to = members.find(m => m.id === settlement.to);
   const isPayer = state.currentUser?.id === settlement.from;
+  const pendingPayment = state.settlementPayments.find(payment =>
+    payment.tripId === state.screenParams.tripId && payment.from === settlement.from
+      && payment.to === settlement.to && payment.status === 'pending'
+  );
   const phoneDigits = (to?.phone || '').replace(/\D/g, '');
   const whatsappNumber = phoneDigits.length === 10
     ? `91${phoneDigits}`
@@ -45,7 +48,6 @@ export default function SettlementScreen() {
     setPaymentError('');
     try {
       await markSettlementPaid({ id: paymentId, tripId: state.screenParams.tripId, to: settlement.to, amount: settlement.amount });
-      setPaid(true);
       setTimeout(() => goBack(), 1200);
     } catch (error) {
       setPaymentError(error.message || 'Could not record this payment.');
@@ -128,13 +130,14 @@ export default function SettlementScreen() {
             {copyError && <p role="alert" className="t-caption c-2" style={{ textAlign: 'center', userSelect: 'all' }}>{copyError}</p>}
 
             <AnimatePresence mode="wait">
-              {!paid ? (
+              {!pendingPayment ? (
                 <motion.button key="mark" className="btn btn-outline btn-full" onClick={handleMarkPaid} disabled={saving} exit={{ opacity: 0, scale: 0.95 }}>
-                  <Check size={18} /> {saving ? 'Recording payment…' : 'Mark as Paid'}
+                  <Check size={18} /> {saving ? 'Sending request…' : 'I’ve Paid — Request Approval'}
                 </motion.button>
               ) : (
-                <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="btn btn-full" style={{ background: 'var(--success-light)', color: 'var(--success)', border: 'none', cursor: 'default' }}>
-                  <Check size={18} /> Payment Recorded
+                <motion.div key="pending" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="card" style={{ padding: 14, background: 'var(--warning-light)', color: 'var(--warning)', border: 'none', textAlign: 'center' }}>
+                  <p className="t-label">Waiting for recipient approval</p>
+                  <p className="t-caption" style={{ marginTop: 4 }}>Your payment of {formatAmount(pendingPayment.amount)} will reduce the trip balance after the recipient approves it.</p>
                 </motion.div>
               )}
             </AnimatePresence>

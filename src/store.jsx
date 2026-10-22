@@ -38,7 +38,8 @@ function mapNotification(row) {
 function mapSettlementPayment(row) {
   return {
     id: row.id, tripId: row.trip_id, from: row.from_user_id,
-    to: row.to_user_id, amount: Number(row.amount), createdAt: row.created_at || '',
+    to: row.to_user_id, amount: Number(row.amount), status: row.status || 'pending',
+    createdAt: row.created_at || '', decidedAt: row.decided_at || null,
   };
 }
 function calcSettlements(members, expenses, payments = []) {
@@ -53,7 +54,7 @@ function calcSettlements(members, expenses, payments = []) {
       exp.splitBetween.forEach(mid => { balances[mid] = (balances[mid] || 0) - share; });
     }
   });
-  payments.forEach(payment => {
+  payments.filter(payment => payment.status === 'approved').forEach(payment => {
     balances[payment.from] = (balances[payment.from] || 0) + Number(payment.amount || 0);
     balances[payment.to] = (balances[payment.to] || 0) - Number(payment.amount || 0);
   });
@@ -121,6 +122,7 @@ function reducer(state, action) {
     case 'MARK_NOTIFICATIONS_VIEWED': return { ...state, notifications: state.notifications.map(item => action.ids.includes(item.id) && !item.viewedAt ? { ...item, viewedAt: action.viewedAt } : item) };
     case 'SET_SETTLEMENT_PAYMENTS': return { ...state, settlementPayments: action.payments };
     case 'ADD_SETTLEMENT_PAYMENT': return { ...state, settlementPayments: state.settlementPayments.some(payment => payment.id === action.payment.id) ? state.settlementPayments : [...state.settlementPayments, action.payment] };
+    case 'DECIDE_SETTLEMENT_PAYMENT': return { ...state, settlementPayments: state.settlementPayments.map(payment => payment.id === action.id ? { ...payment, status: action.status, decidedAt: action.decidedAt } : payment) };
     case 'SHOW_EXIT_PROMPT': return { ...state, exitPromptOpen: true };
     case 'HIDE_EXIT_PROMPT': return { ...state, exitPromptOpen: false };
     case 'SET_USER':        return { ...state, currentUser: action.user, screen: action.user ? 'home' : 'login', loading: false };
@@ -239,12 +241,37 @@ export function StoreProvider({ children }) {
     dispatch({ type: 'SET_NOTIFICATIONS', notifications: (data || []).map(mapNotification) });
   }, []);
 
+  const refreshSettlementPayments = useCallback(async () => {
+    const tripIds = stateRef.current.trips.map(trip => trip.id).filter(id => !String(id).startsWith('tmp_'));
+    if (!navigator.onLine || !stateRef.current.currentUser?.id || !tripIds.length) return;
+    const { data, error } = await supabase.from('settlement_payments').select('*').in('trip_id', tripIds);
+    if (error) {
+      console.error('Could not refresh settlement payments:', error.message);
+      return;
+    }
+    dispatch({ type: 'SET_SETTLEMENT_PAYMENTS', payments: (data || []).map(mapSettlementPayment) });
+  }, []);
+
   useEffect(() => {
     if (!state.currentUser?.id) return undefined;
     refreshNotifications();
     const interval = window.setInterval(refreshNotifications, 60 * 1000);
     return () => window.clearInterval(interval);
   }, [state.currentUser?.id, refreshNotifications]);
+
+  useEffect(() => {
+    if (!state.currentUser?.id) return undefined;
+    const refresh = () => { refreshNotifications(); refreshSettlementPayments(); };
+    const onVisibilityChange = () => { if (document.visibilityState === 'visible') refresh(); };
+    const interval = window.setInterval(refreshSettlementPayments, 60 * 1000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [state.currentUser?.id, refreshNotifications, refreshSettlementPayments]);
 
   // ── persist to localStorage on every state change ─────────
   useEffect(() => { saveCache(state); }, [state]);
@@ -547,8 +574,18 @@ export function StoreProvider({ children }) {
       p_payment_id: id, p_trip_id: tripId, p_to_user_id: to, p_amount: amount,
     });
     if (error) throw error;
-    dispatch({ type: 'ADD_SETTLEMENT_PAYMENT', payment: { id, tripId, from, to, amount: Number(amount), createdAt: new Date().toISOString() } });
+    dispatch({ type: 'ADD_SETTLEMENT_PAYMENT', payment: { id, tripId, from, to, amount: Number(amount), status: 'pending', createdAt: new Date().toISOString() } });
   }, []);
+
+  const decideSettlementPayment = useCallback(async (paymentId, approve) => {
+    const { data, error } = await supabase.rpc('decide_settlement_payment', {
+      p_payment_id: paymentId, p_approve: approve,
+    });
+    if (error) throw error;
+    dispatch({ type: 'DECIDE_SETTLEMENT_PAYMENT', id: paymentId, status: data, decidedAt: new Date().toISOString() });
+    await refreshNotifications();
+    return data;
+  }, [refreshNotifications]);
 
   const updateProfile = useCallback(async (data) => {
     const userId = stateRef.current.currentUser?.id;
@@ -579,7 +616,7 @@ export function StoreProvider({ children }) {
       getTripExpenses, getTripMembers, getMember, getTripTotal, getSettlements,
       signInGoogle, signOut, createTrip, updateTrip, deleteTrip, createTripInvite,
       getTripInvite, requestTripJoin, listTripJoinRequests, decideTripJoinRequest, refreshUserData,
-      addExpense, deleteExpense, markSettlementPaid, updateProfile,
+      addExpense, deleteExpense, markSettlementPaid, decideSettlementPayment, updateProfile,
     }}>
       {children}
     </StoreCtx.Provider>
