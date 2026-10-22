@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, ArrowRight } from 'lucide-react';
+import { AlertCircle, ArrowRight, IndianRupee } from 'lucide-react';
 import { useStore } from '../store';
 
 function GoogleIcon() {
@@ -55,40 +55,23 @@ export default function LoginScreen() {
       background: 'var(--surface)', minHeight: '100dvh',
       paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom)',
     }}>
-      {/* Brand hero */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 32px 32px' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 28px 28px' }}>
         <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
-          style={{ marginBottom: 24 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}
         >
-          <div style={{
-            width: 72, height: 72, borderRadius: 20,
-            background: 'var(--accent)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 12px 32px rgba(37,99,235,0.28)',
-          }}>
-            <span style={{ color: '#fff', fontSize: 34, fontWeight: 800, fontFamily: 'Inter,sans-serif', letterSpacing: -1 }}>A</span>
+          <div style={{ width: 60, height: 60, borderRadius: 18, background: 'var(--accent)', display: 'grid', placeItems: 'center', margin: '0 auto 20px', boxShadow: '0 8px 22px rgba(37,99,235,0.2)' }}>
+            <span style={{ color: '#fff', fontSize: 30, fontWeight: 750, letterSpacing: -1 }}>A</span>
           </div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.3 }} style={{ textAlign: 'center', marginBottom: 48 }}>
-          <p style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.8, color: 'var(--text)', marginBottom: 8 }}>ASplit</p>
-          <p style={{ fontSize: 16, color: 'var(--text-2)', lineHeight: 1.5 }}>
-            Split trip expenses with friends,<br />settle up instantly.
+          <p style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.7, color: 'var(--text)', marginBottom: 8 }}>Welcome to ASplit</p>
+          <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.6, maxWidth: 310, margin: '0 auto' }}>
+            Keep trip expenses clear. See who paid, who owes, and settle up with your group.
           </p>
-        </motion.div>
-
-        {/* Feature pills */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 48 }}>
-          {['Track expenses', 'Split fairly', 'Settle via UPI'].map(f => (
-            <span key={f} style={{
-              padding: '6px 14px', borderRadius: 100,
-              background: 'var(--accent-light)', color: 'var(--accent)',
-              fontSize: 13, fontWeight: 500,
-            }}>{f}</span>
-          ))}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 22, padding: '7px 12px', borderRadius: 100, background: 'var(--accent-light)', color: 'var(--accent)', fontSize: 13, fontWeight: 600 }}>
+            <IndianRupee size={15} strokeWidth={2.2} /> Amounts in INR
+          </div>
         </motion.div>
       </div>
 
@@ -97,7 +80,7 @@ export default function LoginScreen() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.3 }}
-        style={{ padding: '0 24px 32px' }}
+        style={{ width: '100%', maxWidth: 408, margin: '0 auto', padding: '0 24px 32px' }}
       >
         {/* Error banner */}
         <AnimatePresence>
@@ -150,9 +133,6 @@ export default function LoginScreen() {
           )}
         </button>
 
-        <p className="t-caption c-3 text-center" style={{ marginTop: 20, lineHeight: 1.6 }}>
-          By continuing you agree to our Terms of Service<br />and Privacy Policy
-        </p>
       </motion.div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
