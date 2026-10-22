@@ -39,7 +39,7 @@ function mapSettlementPayment(row) {
   return {
     id: row.id, tripId: row.trip_id, from: row.from_user_id,
     to: row.to_user_id, amount: Number(row.amount), status: row.status || 'pending',
-    createdAt: row.created_at || '', decidedAt: row.decided_at || null,
+    createdAt: row.created_at || '', decidedAt: row.decided_at || null, decidedBy: row.decided_by || null,
   };
 }
 function calcSettlements(members, expenses, payments = []) {
@@ -109,6 +109,7 @@ const initialState = {
   currentUser: cache?.currentUser || null,
   darkMode:    cache?.darkMode    ?? false,
   notifications: cache?.notifications || [],
+  notificationsReady: false,
   settlementPayments: cache?.settlementPayments || [],
   exitPromptOpen: false, loading: true,
   isOnline: navigator.onLine,
@@ -118,15 +119,15 @@ const initialState = {
 function reducer(state, action) {
   switch (action.type) {
     case 'NAV':             return { ...state, screen: action.screen, screenParams: action.params || {} };
-    case 'SET_NOTIFICATIONS': return { ...state, notifications: action.notifications };
+    case 'SET_NOTIFICATIONS': return { ...state, notifications: action.notifications, notificationsReady: true };
     case 'MARK_NOTIFICATIONS_VIEWED': return { ...state, notifications: state.notifications.map(item => action.ids.includes(item.id) && !item.viewedAt ? { ...item, viewedAt: action.viewedAt } : item) };
     case 'SET_SETTLEMENT_PAYMENTS': return { ...state, settlementPayments: action.payments };
     case 'ADD_SETTLEMENT_PAYMENT': return { ...state, settlementPayments: state.settlementPayments.some(payment => payment.id === action.payment.id) ? state.settlementPayments : [...state.settlementPayments, action.payment] };
     case 'DECIDE_SETTLEMENT_PAYMENT': return { ...state, settlementPayments: state.settlementPayments.map(payment => payment.id === action.id ? { ...payment, status: action.status, decidedAt: action.decidedAt } : payment) };
     case 'SHOW_EXIT_PROMPT': return { ...state, exitPromptOpen: true };
     case 'HIDE_EXIT_PROMPT': return { ...state, exitPromptOpen: false };
-    case 'SET_USER':        return { ...state, currentUser: action.user, screen: action.user ? 'home' : 'login', loading: false };
-    case 'SIGN_OUT':        return { ...initialState, trips: [], members: [], expenses: [], notifications: [], settlementPayments: [], currentUser: null, screen: 'login', loading: false };
+    case 'SET_USER':        return { ...state, currentUser: action.user, notificationsReady: action.user?.id === state.currentUser?.id ? state.notificationsReady : false, screen: action.user ? 'home' : 'login', loading: false };
+    case 'SIGN_OUT':        return { ...initialState, trips: [], members: [], expenses: [], notifications: [], notificationsReady: false, settlementPayments: [], currentUser: null, screen: 'login', loading: false };
     case 'SET_TRIPS':       return { ...state, trips: action.trips };
     case 'SET_MEMBERS':     return { ...state, members: action.members };
     case 'SET_EXPENSES':    return { ...state, expenses: action.expenses };
@@ -232,7 +233,11 @@ export function StoreProvider({ children }) {
   const notifications = state.notifications.filter(item => !item.viewedAt || Date.now() - Date.parse(item.viewedAt) < 24 * 60 * 60 * 1000);
 
   const refreshNotifications = useCallback(async () => {
-    if (!navigator.onLine || !stateRef.current.currentUser?.id) return;
+    if (!stateRef.current.currentUser?.id) return;
+    if (!navigator.onLine) {
+      dispatch({ type: 'SET_NOTIFICATIONS', notifications: stateRef.current.notifications });
+      return;
+    }
     const { data, error } = await supabase.rpc('get_app_notifications');
     if (error) {
       console.error('Could not refresh notifications:', error.message);

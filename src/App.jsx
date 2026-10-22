@@ -1,4 +1,6 @@
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowRight, Bell, X } from 'lucide-react';
 import { StoreProvider, useStore } from './store';
 import BottomNav from './components/BottomNav';
 import LoginScreen from './screens/LoginScreen';
@@ -51,8 +53,30 @@ function LoadingSplash() {
 }
 
 function AppInner() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, nav, notifications, markNotificationsViewed } = useStore();
   const { screen, currentUser, loading } = state;
+  const [showUnreadPopup, setShowUnreadPopup] = useState(false);
+  const [popupNotifications, setPopupNotifications] = useState([]);
+  const promptedUserRef = useRef('');
+
+  useEffect(() => {
+    if (!currentUser?.id) {
+      promptedUserRef.current = '';
+      setShowUnreadPopup(false);
+      setPopupNotifications([]);
+      return;
+    }
+    if (loading || !state.notificationsReady || promptedUserRef.current === currentUser.id) return;
+
+    promptedUserRef.current = currentUser.id;
+    const unseen = notifications.filter(notification => !notification.viewedAt);
+    if (!unseen.length) return;
+    setPopupNotifications(unseen);
+    setShowUnreadPopup(true);
+    markNotificationsViewed(unseen.map(notification => notification.id)).catch(error => {
+      console.error('Could not mark popup notifications as viewed:', error.message);
+    });
+  }, [currentUser?.id, loading, state.notificationsReady, notifications, markNotificationsViewed]);
 
   if (loading) {
     return (
@@ -112,6 +136,34 @@ function AppInner() {
                 else window.dispatchEvent(new CustomEvent('asplit:exit-requested'));
               }}>Close app</button>
             </div>
+          </section>
+        </div>
+      )}
+      {showUnreadPopup && (
+        <div role="presentation" onClick={() => setShowUnreadPopup(false)} style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(15,23,42,0.5)', display: 'grid', placeItems: 'center', padding: 24 }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="unread-notifications-title" onClick={event => event.stopPropagation()} className="card" style={{ width: '100%', maxWidth: 420, padding: 20 }}>
+            <div className="flex items-center gap-3">
+              <div style={{ width: 42, height: 42, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'var(--accent-light)', color: 'var(--accent)' }}><Bell size={20} /></div>
+              <div style={{ flex: 1 }}>
+                <h2 id="unread-notifications-title" className="t-heading">New notifications</h2>
+                <p className="t-caption c-3">{popupNotifications.length} unread update{popupNotifications.length === 1 ? '' : 's'}</p>
+              </div>
+              <button type="button" className="btn btn-ghost btn-icon" onClick={() => setShowUnreadPopup(false)} aria-label="Close notifications"><X size={18} /></button>
+            </div>
+            <div style={{ marginTop: 14, maxHeight: '45vh', overflowY: 'auto' }}>
+              {popupNotifications.map(notification => (
+                <div key={notification.id} style={{ padding: '11px 0', borderTop: '1px solid var(--border-light)' }}>
+                  <p className="t-label">{notification.title}</p>
+                  <p className="t-caption c-2" style={{ marginTop: 3 }}>{notification.body}</p>
+                </div>
+              ))}
+            </div>
+            <button type="button" className="btn btn-primary btn-full" style={{ marginTop: 16 }} onClick={() => {
+              setShowUnreadPopup(false);
+              nav('notifications');
+            }}>
+              Open notifications <ArrowRight size={16} />
+            </button>
           </section>
         </div>
       )}

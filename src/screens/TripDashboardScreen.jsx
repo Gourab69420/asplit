@@ -8,6 +8,74 @@ import TripInviteSheet from '../components/TripInviteSheet';
 
 const CATEGORY_ICONS = { hotel: Hotel, food: Utensils, taxi: Car, transport: Car, activity: Zap, shopping: ShoppingBag, coffee: Coffee, fuel: Fuel, other: MoreHorizontal };
 
+const memberName = (members, id) => members.find(member => member.id === id)?.name || id || '';
+const csvEscape = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+function downloadCsv(filename, rows) {
+  const csv = `\uFEFF${rows.map(row => row.map(csvEscape).join(',')).join('\r\n')}`;
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function expenseShareBreakdown(expense, members) {
+  if (expense.splitAmounts?.length) {
+    return expense.splitAmounts.map(share => `${memberName(members, share.memberId)}: ${Number(share.amount || 0).toFixed(2)}`);
+  }
+  const ids = expense.splitBetween || [];
+  if (!ids.length) return [];
+  const totalCents = Math.round(Number(expense.amount || 0) * 100);
+  const eachCents = Math.floor(totalCents / ids.length);
+  const remainder = totalCents - eachCents * ids.length;
+  return ids.map((id, index) => `${memberName(members, id)}: ${((eachCents + (index < remainder ? 1 : 0)) / 100).toFixed(2)}`);
+}
+
+function expenseCsvRows(trip, members, expenses) {
+  return [
+    ['Trip', 'Expense ID', 'Expense Date', 'Expense Time', 'Title', 'Category', 'Notes', 'Total Amount', 'Currency', 'Split Type', 'Payer Count', 'Payer Amount Breakdown', 'Participant Count', 'Share Breakdown', 'Created By', 'Created At'],
+    ...expenses.map(expense => [
+      trip.name, expense.id, expense.date, expense.time, expense.title, expense.category, expense.notes,
+      Number(expense.amount || 0).toFixed(2), trip.currency, expense.splitType,
+      expense.paidBy.length,
+      expense.paidBy.map(payer => `${memberName(members, payer.memberId)}: ${Number(payer.amount || 0).toFixed(2)}`).join(' | '),
+      expense.splitBetween.length,
+      expenseShareBreakdown(expense, members).join(' | '),
+      memberName(members, expense.createdBy), expense.createdAt,
+    ]),
+  ];
+}
+
+function settlementCsvRows(trip, members, settlements, paymentHistory) {
+  const name = id => memberName(members, id);
+  const statusText = status => ({
+    approved: 'Done - recipient approved',
+    pending: 'Waiting for recipient approval',
+    declined: 'Declined by recipient',
+  }[status] || status || 'Unknown');
+  const historyRows = [...paymentHistory]
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .map(payment => [
+      trip.name, 'Payment record', payment.id, name(payment.from), name(payment.to), Number(payment.amount || 0).toFixed(2), trip.currency,
+      statusText(payment.status), payment.createdAt, payment.decidedAt || '', name(payment.decidedBy),
+      payment.status === 'approved' ? 'Recipient approved; balance reduced.' : payment.status === 'pending' ? 'Balance is unchanged until recipient approval.' : 'Balance was not changed.',
+    ]);
+  const outstandingRows = settlements.map(settlement => [
+    trip.name, 'Current outstanding balance', '', name(settlement.from), name(settlement.to), Number(settlement.amount || 0).toFixed(2), trip.currency,
+    'Still due', '', '', '', 'Calculated from expenses and recipient-approved payments; pending requests do not reduce the balance.',
+  ]);
+  return [
+    ['Trip', 'Record Type', 'Payment ID', 'From', 'To', 'Amount', 'Currency', 'Status', 'Requested / Recorded At', 'Decision At', 'Approved / Declined By', 'Details'],
+    ...historyRows,
+    ...outstandingRows,
+  ];
+}
+
+const paymentStatusLabel = status => ({
+  approved: 'Settled', pending: 'Awaiting approval', declined: 'Declined',
+}[status] || 'Unknown');
+
 function StatCard({ label, value, sub, color }) {
   return (
     <div className="card flex-1" style={{ padding: '14px 16px' }}>
@@ -102,7 +170,7 @@ function PendingSettlementApprovals({ payments, members, onDecision }) {
 }
 
 // ── Trip Settings Sheet ───────────────────────────────────────
-function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements }) {
+function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements, paymentHistory }) {
   const { state, nav, deleteTrip } = useStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -122,48 +190,13 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
     finally { setDeleting(false); }
   };
 
-  const exportCSV = () => {
-    const rows = [
-      ['Date', 'Title', 'Category', 'Amount', 'Paid By', 'Split Between'],
-      ...expenses.map(e => [
-        e.date,
-        e.title,
-        e.category,
-        e.amount,
-        e.paidBy.map(p => members.find(m => m.id === p.memberId)?.name || p.memberId).join('; '),
-        e.splitBetween.map(id => {
-          const name = members.find(m => m.id === id)?.name || id;
-          const share = e.splitAmounts?.find(item => item.memberId === id)?.amount;
-          return share == null ? name : `${name}: ${share}`;
-        }).join('; '),
-      ]),
-    ];
-    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${trip.name.replace(/\s+/g, '_')}_expenses.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
+  const exportCSV = () => downloadCsv(
+    `${trip.name.replace(/[^\w-]+/g, '_')}_expenses.csv`, expenseCsvRows(trip, members, expenses)
+  );
 
-  const exportSettlementsCSV = () => {
-    const rows = [
-      ['From', 'To', 'Amount'],
-      ...settlements.map(s => [
-        members.find(m => m.id === s.from)?.name || s.from,
-        members.find(m => m.id === s.to)?.name || s.to,
-        s.amount,
-      ]),
-    ];
-    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${trip.name.replace(/\s+/g, '_')}_settlements.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
+  const exportSettlementsCSV = () => downloadCsv(
+    `${trip.name.replace(/[^\w-]+/g, '_')}_settlements.csv`, settlementCsvRows(trip, members, settlements, paymentHistory)
+  );
 
   const settingsItems = [
     ...(isAdmin && !trip.deletedAt ? [{ label: 'Edit Trip Details', icon: Edit2, onPress: () => { onClose(); nav('editTrip', { tripId: trip.id }); } }] : []),
@@ -229,7 +262,7 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
 }
 
 // ── Countdown Banner ─────────────────────────────────────────
-function DeletedBanner({ deletedAt, members, expenses, settlements, trip }) {
+function DeletedBanner({ deletedAt, members, expenses, settlements, paymentHistory, trip }) {
   const [timeLeft, setTimeLeft] = useState('');
 
   useEffect(() => {
@@ -247,41 +280,13 @@ function DeletedBanner({ deletedAt, members, expenses, settlements, trip }) {
     return () => clearInterval(t);
   }, [deletedAt]);
 
-  const exportCSV = () => {
-    const rows = [
-      ['Date', 'Title', 'Category', 'Amount', 'Paid By', 'Split Between'],
-      ...expenses.map(e => [
-        e.date, e.title, e.category, e.amount,
-        e.paidBy.map(p => members.find(m => m.id === p.memberId)?.name || p.memberId).join('; '),
-        e.splitBetween.map(id => {
-          const name = members.find(m => m.id === id)?.name || id;
-          const share = e.splitAmounts?.find(item => item.memberId === id)?.amount;
-          return share == null ? name : `${name}: ${share}`;
-        }).join('; '),
-      ]),
-    ];
-    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = `${trip.name.replace(/\s+/g, '_')}_expenses.csv`;
-    a.click(); URL.revokeObjectURL(a.href);
-  };
+  const exportCSV = () => downloadCsv(
+    `${trip.name.replace(/[^\w-]+/g, '_')}_expenses.csv`, expenseCsvRows(trip, members, expenses)
+  );
 
-  const exportSettlementsCSV = () => {
-    const rows = [
-      ['From', 'To', 'Amount'],
-      ...settlements.map(s => [
-        members.find(m => m.id === s.from)?.name || s.from,
-        members.find(m => m.id === s.to)?.name || s.to,
-        s.amount,
-      ]),
-    ];
-    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = `${trip.name.replace(/\s+/g, '_')}_settlements.csv`;
-    a.click(); URL.revokeObjectURL(a.href);
-  };
+  const exportSettlementsCSV = () => downloadCsv(
+    `${trip.name.replace(/[^\w-]+/g, '_')}_settlements.csv`, settlementCsvRows(trip, members, settlements, paymentHistory)
+  );
 
   return (
     <div style={{ margin: '12px 20px', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--danger-light)' }}>
@@ -327,6 +332,10 @@ export default function TripDashboardScreen() {
   const { balances, settlements } = getSettlements(tripId);
   const myId = state.currentUser?.id;
   const paymentApprovals = state.settlementPayments.filter(payment => payment.tripId === tripId && payment.to === myId && payment.status === 'pending');
+  const paymentHistory = state.settlementPayments
+    .filter(payment => payment.tripId === tripId)
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  const visiblePaymentHistory = paymentHistory.filter(payment => !(payment.status === 'pending' && payment.to === myId));
   const myBalance = balances[myId] || 0;
 
   const grouped = expenses.reduce((acc, e) => {
@@ -369,6 +378,7 @@ export default function TripDashboardScreen() {
           members={members}
           expenses={expenses}
           settlements={settlements}
+          paymentHistory={paymentHistory}
         />
       )}
 
@@ -445,8 +455,8 @@ export default function TripDashboardScreen() {
                 <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--success-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                   <Check size={22} color="var(--success)" />
                 </div>
-                <p className="t-heading mb-2">All settled up!</p>
-                <p className="t-body c-3">No pending payments in this trip.</p>
+                <p className="t-heading mb-2">No balance currently due</p>
+                <p className="t-body c-3">New expenses can create another settlement later in the trip.</p>
               </div>
             ) : (
               settlements.map((s, i) => {
@@ -472,6 +482,30 @@ export default function TripDashboardScreen() {
                 );
               })
             )}
+            {visiblePaymentHistory.length > 0 && (
+              <div className="card" style={{ padding: '6px 16px', marginTop: 12, marginBottom: 16 }}>
+                <p className="section-title" style={{ padding: '10px 0 4px' }}>Settlement history</p>
+                {visiblePaymentHistory.map((payment, index) => {
+                  const payer = members.find(member => member.id === payment.from);
+                  const recipient = members.find(member => member.id === payment.to);
+                  const statusColor = payment.status === 'approved' ? 'var(--success)' : payment.status === 'declined' ? 'var(--danger)' : 'var(--warning)';
+                  const reviewer = members.find(member => member.id === payment.decidedBy);
+                  return (
+                    <div key={payment.id} style={{ padding: '12px 0', borderTop: '1px solid var(--border-light)' }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="t-label" style={{ minWidth: 0 }}>{payer?.name || 'Member'} paid {recipient?.name || 'member'}</p>
+                        <p className="t-label" style={{ flexShrink: 0 }}>{formatAmount(payment.amount)}</p>
+                      </div>
+                      <div className="flex items-center justify-between gap-2" style={{ marginTop: 4 }}>
+                        <p className="t-caption c-3">{formatDateShort(payment.createdAt)}{reviewer ? ` · Reviewed by ${reviewer.name}` : ''}</p>
+                        <span className="t-caption" style={{ color: statusColor, fontWeight: 650, textAlign: 'right' }}>{paymentStatusLabel(payment.status)}</span>
+                      </div>
+                      {index < visiblePaymentHistory.length - 1 && <div className="divider" style={{ marginTop: 12 }} />}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -491,6 +525,7 @@ export default function TripDashboardScreen() {
         members={members}
         expenses={expenses}
         settlements={settlements}
+        paymentHistory={paymentHistory}
       />
       <TripInviteSheet open={inviteOpen} onClose={() => setInviteOpen(false)} trip={trip} />
     </div>
