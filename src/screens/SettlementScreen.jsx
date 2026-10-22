@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Smartphone } from 'lucide-react';
 import { useStore } from '../store';
 import { Avatar, formatAmount } from '../components/ui';
 
@@ -17,6 +17,12 @@ export default function SettlementScreen() {
   const from = members.find(m => m.id === settlement.from);
   const to = members.find(m => m.id === settlement.to);
   const isPayer = state.currentUser?.id === settlement.from;
+  const upiParams = new URLSearchParams({
+    pa: to?.upi?.trim() || '',
+    am: Number(settlement.amount).toFixed(2),
+    cu: 'INR',
+  });
+  const upiLink = `upi://pay?${upiParams.toString()}`;
 
   const handleCopyUPI = async () => {
     try {
@@ -67,12 +73,15 @@ export default function SettlementScreen() {
           <>
             {to?.upi ? (
               <>
-                <button type="button" onClick={handleCopyUPI} className="btn btn-primary btn-full">
+                <a href={upiLink} className="btn btn-primary btn-full" style={{ textDecoration: 'none' }}>
+                  <Smartphone size={18} /> Pay using UPI app
+                </a>
+                <button type="button" onClick={handleCopyUPI} className="btn btn-outline btn-full">
                   {upiCopied ? <Check size={18} /> : <Copy size={18} />}
                   {upiCopied ? 'UPI ID Copied' : 'Copy UPI ID'}
                 </button>
                 <p className="t-caption c-3" style={{ textAlign: 'center', lineHeight: 1.6 }}>
-                  Open any UPI app, choose payment by UPI ID, paste it, and enter {formatAmount(settlement.amount)}.
+                  If the UPI app can’t complete the payment, copy the UPI ID and pay manually. Enter {formatAmount(settlement.amount)}.
                 </p>
                 {copyError && <p role="alert" className="t-caption c-2" style={{ textAlign: 'center', userSelect: 'all' }}>{copyError}</p>}
               </>
