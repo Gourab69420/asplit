@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, QrCode, Check, Share2, Copy } from 'lucide-react';
+import { ArrowLeft, QrCode, Check } from 'lucide-react';
 import { useStore } from '../store';
 import { Avatar, formatAmount } from '../components/ui';
 
-function QRPlaceholder({ upi, amount, name }) {
+function QRPlaceholder({ upi }) {
   // Visual QR placeholder using SVG pattern
   const cells = [];
   const size = 21;
@@ -32,7 +32,7 @@ function QRPlaceholder({ upi, amount, name }) {
 }
 
 export default function SettlementScreen() {
-  const { state, nav, dispatch } = useStore();
+  const { state, nav } = useStore();
   const { settlement, tripId } = state.screenParams;
   const [paid, setPaid] = useState(false);
 
@@ -81,7 +81,7 @@ export default function SettlementScreen() {
         <div className="card" style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
           <p className="t-label c-2">Scan to Pay</p>
           <div style={{ padding: 12, background: '#fff', borderRadius: 16, boxShadow: 'var(--shadow)' }}>
-            <QRPlaceholder upi={to?.upi || 'upi'} amount={settlement.amount} name={to?.name || ''} />
+            <QRPlaceholder upi={to?.upi || 'upi'} />
           </div>
           <p className="t-caption c-3">{to?.upi}</p>
         </div>

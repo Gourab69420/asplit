@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Plus, Receipt, Calendar, Users, ChevronRight } from 'lucide-react';
 import { useStore } from '../store';
-import { AvatarStack, formatAmount, formatDateShort, EmptyState } from '../components/ui';
+import { formatAmount, formatDateShort, EmptyState } from '../components/ui';
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };

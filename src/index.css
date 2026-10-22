@@ -229,18 +229,6 @@ body {
   border-radius: 2px; margin: 12px auto 4px;
 }
 
-/* Skeleton */
-@keyframes shimmer {
-  0% { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
-}
-.skeleton {
-  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border-light) 50%, var(--surface-2) 75%);
-  background-size: 800px 100%;
-  animation: shimmer 1.4s infinite;
-  border-radius: var(--radius-sm);
-}
-
 /* FAB */
 .fab {
   position: fixed; bottom: calc(var(--nav-h) + var(--safe-bottom) + 16px); right: 20px;

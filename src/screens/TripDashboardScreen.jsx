@@ -191,7 +191,7 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
 }
 
 // ── Countdown Banner ─────────────────────────────────────────
-function DeletedBanner({ deletedAt, onExportExpenses, onExportSettlements, members, expenses, settlements, trip }) {
+function DeletedBanner({ deletedAt, members, expenses, settlements, trip }) {
   const [timeLeft, setTimeLeft] = useState('');
 
   useEffect(() => {

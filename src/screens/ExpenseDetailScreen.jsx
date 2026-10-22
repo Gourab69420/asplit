@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { ArrowLeft, Trash2, Hotel, Utensils, Car, ShoppingBag, Coffee, Fuel, Zap, MoreHorizontal } from 'lucide-react';
 import { useStore } from '../store';
 import { Avatar, formatAmount, formatDate, getCategoryMeta } from '../components/ui';

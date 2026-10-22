@@ -72,14 +72,6 @@ export function BottomSheet({ open, onClose, title, children }) {
   );
 }
 
-export function IconBox({ icon: Icon, color, bg, size = 18 }) {
-  return (
-    <div className="icon-box" style={{ background: bg || 'var(--surface-2)' }}>
-      <Icon size={size} color={color || 'var(--text-2)'} strokeWidth={1.8} />
-    </div>
-  );
-}
-
 export function EmptyState({ icon: Icon, title, subtitle, action, onAction }) {
   return (
     <div className="flex flex-col items-center justify-center text-center" style={{ padding: '48px 32px' }}>
@@ -89,16 +81,6 @@ export function EmptyState({ icon: Icon, title, subtitle, action, onAction }) {
       <p className="t-heading mb-2">{title}</p>
       <p className="t-body c-3" style={{ marginBottom: action ? 24 : 0 }}>{subtitle}</p>
       {action && <button className="btn btn-primary" onClick={onAction}>{action}</button>}
-    </div>
-  );
-}
-
-export function SkeletonCard() {
-  return (
-    <div className="card card-p" style={{ marginBottom: 12 }}>
-      <div className="skeleton" style={{ height: 16, width: '60%', marginBottom: 10 }} />
-      <div className="skeleton" style={{ height: 12, width: '40%', marginBottom: 16 }} />
-      <div className="skeleton" style={{ height: 24, width: '30%' }} />
     </div>
   );
 }

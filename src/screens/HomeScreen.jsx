@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Bell, Search, Plus, Users, Calendar, IndianRupee } from 'lucide-react';
+import { Bell, Search, Plus, Calendar } from 'lucide-react';
 import { useStore } from '../store';
 import { Avatar, AvatarStack, formatAmount, formatDateShort } from '../components/ui';
 

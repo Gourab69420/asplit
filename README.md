@@ -6,7 +6,7 @@ A premium mobile-first PWA for splitting trip expenses with friends and settling
 
 - Google OAuth sign-in via Supabase
 - Create trips and invite members
-- Add and split expenses (equal, custom, percentage)
+- Add expenses with equal or customized payer and share amounts
 - Real-time settlement calculations
 - UPI payment integration with QR code
 - Profile management

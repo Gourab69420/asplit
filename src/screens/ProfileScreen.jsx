@@ -60,7 +60,7 @@ export default function ProfileScreen() {
   const [saveError, setSaveError] = useState('');
 
   const uid = currentUser?.id;
-  const { getSettlements, getTripMembers } = useStore();
+  const { getSettlements } = useStore();
 
   // Total you paid upfront
   const totalPaid = expenses
