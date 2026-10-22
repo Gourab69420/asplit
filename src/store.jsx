@@ -15,11 +15,12 @@ function mapProfile(row) {
   return { id: row.id, name: row.name || '', email: row.email || '', upi: row.upi_id || '',
     initials: getInitials(row.name), color: row.avatar_color || pickColor(row.id) };
 }
-function mapTrip(row, memberIds = []) {
+function mapTrip(row, memberIds = [], memberInfos = []) {
+  const membersWithRoles = memberInfos.map(m => ({ id: m.user_id, role: m.role }));
   return { id: row.id, name: row.name, description: row.description || '', currency: row.currency || 'INR',
     startDate: row.start_date || '', endDate: row.end_date || '', status: row.status || 'upcoming',
     coverColor: row.cover_color || '#2563eb', createdBy: row.created_by, members: memberIds,
-    deletedAt: row.deleted_at || null, inviteCode: row.invite_code };
+    memberRoles: membersWithRoles, deletedAt: row.deleted_at || null, inviteCode: row.invite_code };
 }
 function mapExpense(row) {
   return { id: row.id, tripId: row.trip_id, title: row.title, amount: Number(row.amount),
@@ -136,7 +137,13 @@ export function StoreProvider({ children }) {
   const nav = (screen, params) => dispatch({ type: 'NAV', screen, params });
 
   const getTripExpenses = (tripId) => state.expenses.filter(e => e.tripId === tripId);
-  const getTripMembers  = (trip)   => state.members.filter(m => (trip?.members || []).includes(m.id));
+  const getTripMembers  = (trip)   => {
+    if (!trip?.memberRoles) return state.members.filter(m => (trip?.members || []).includes(m.id));
+    return trip.memberRoles.map(mr => {
+      const profile = state.members.find(m => m.id === mr.id);
+      return profile ? { ...profile, role: mr.role } : { id: mr.id, role: mr.role };
+    });
+  };
   const getMember       = (id)     => state.members.find(m => m.id === id);
   const getTripTotal    = (tripId) => state.expenses.filter(e => e.tripId === tripId).reduce((s, e) => s + e.amount, 0);
   const getSettlements  = (tripId) => {
@@ -257,10 +264,11 @@ export function StoreProvider({ children }) {
     const { data: tripRows } = await supabase.from('trips').select('*').in('id', tripIds).order('created_at', { ascending: false });
     if (!tripRows?.length) return;
 
-    const { data: allMemberRows } = await supabase.from('trip_members').select('trip_id, user_id').in('trip_id', tripIds);
+    const { data: allMemberRows } = await supabase.from('trip_members').select('trip_id, user_id, role').in('trip_id', tripIds);
     const trips = tripRows.map(t => {
-      const mIds = (allMemberRows || []).filter(r => r.trip_id === t.id).map(r => r.user_id);
-      return mapTrip(t, mIds);
+      const memberInfos = (allMemberRows || []).filter(r => r.trip_id === t.id);
+      const mIds = memberInfos.map(r => r.user_id);
+      return mapTrip(t, mIds, memberInfos);
     });
     dispatch({ type: 'SET_TRIPS', trips });
 
