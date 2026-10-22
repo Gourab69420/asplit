@@ -72,7 +72,7 @@ export default function HomeScreen() {
             <Avatar member={currentUser} size="md" />
             <div>
               <p className="t-caption c-3">{greeting}</p>
-              <p className="t-heading">{currentUser?.name?.split(' ')[0] || 'User'}</p>
+              <p className="t-heading">{currentUser.name.split(' ')[0]}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
