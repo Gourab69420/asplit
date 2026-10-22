@@ -64,13 +64,13 @@ export default function ProfileScreen() {
 
   // Total you paid upfront
   const totalPaid = expenses
-    .filter(e => e.paidBy.some(p => p.memberId === uid))
-    .reduce((s, e) => s + e.amount, 0);
+    .reduce((sum, e) => sum + e.paidBy.filter(p => p.memberId === uid).reduce((paid, p) => paid + Number(p.amount || 0), 0), 0);
 
   // Your actual share across all expenses
-  const totalShare = expenses
-    .filter(e => e.splitBetween.includes(uid))
-    .reduce((s, e) => s + e.amount / (e.splitBetween.length || 1), 0);
+  const totalShare = expenses.reduce((sum, e) => {
+    if (e.splitAmounts?.length) return sum + e.splitAmounts.filter(share => share.memberId === uid).reduce((amount, share) => amount + Number(share.amount || 0), 0);
+    return sum + (e.splitBetween.includes(uid) ? e.amount / (e.splitBetween.length || 1) : 0);
+  }, 0);
 
   // Net pending settlements across all trips (+ = you receive, - = you owe)
   const netSettlement = trips.reduce((sum, trip) => {

@@ -13,7 +13,7 @@ export default function ExpenseDetailScreen() {
 
   const meta = getCategoryMeta(expense.category);
   const Icon = CATEGORY_ICONS[expense.category] || MoreHorizontal;
-  const perPerson = expense.amount / (expense.splitBetween.length || 1);
+  const equalShare = expense.amount / (expense.splitBetween.length || 1);
 
   const handleDelete = async () => {
     try { await deleteExpense(expenseId); } catch (e) { console.error(e); }
@@ -70,7 +70,7 @@ export default function ExpenseDetailScreen() {
                     <Avatar member={m} size="sm" />
                     <p className="t-label">{m.name}</p>
                   </div>
-                  <p className="t-label t-mono c-2">{formatAmount(perPerson)}</p>
+                  <p className="t-label t-mono c-2">{formatAmount(expense.splitAmounts?.find(share => share.memberId === id)?.amount ?? equalShare)}</p>
                 </div>
               ) : null;
             })}

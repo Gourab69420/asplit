@@ -51,7 +51,7 @@ function ExpenseCard({ expense, members, onPress }) {
         <div className="flex-1">
           <p className="t-label">{expense.title}</p>
           <p className="t-caption c-3">
-            {payer ? `Paid by ${payer.name.split(' ')[0]}` : ''} · {expense.splitBetween.length} people
+            {payer ? (expense.paidBy.length > 1 ? `Paid by ${expense.paidBy.length} people` : `Paid by ${payer.name.split(' ')[0]}`) : ''} · {expense.splitBetween.length} people
           </p>
         </div>
         <div className="flex flex-col items-end">
@@ -93,7 +93,11 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
         e.category,
         e.amount,
         e.paidBy.map(p => members.find(m => m.id === p.memberId)?.name || p.memberId).join('; '),
-        e.splitBetween.map(id => members.find(m => m.id === id)?.name || id).join('; '),
+        e.splitBetween.map(id => {
+          const name = members.find(m => m.id === id)?.name || id;
+          const share = e.splitAmounts?.find(item => item.memberId === id)?.amount;
+          return share == null ? name : `${name}: ${share}`;
+        }).join('; '),
       ]),
     ];
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -211,7 +215,11 @@ function DeletedBanner({ deletedAt, onExportExpenses, onExportSettlements, membe
       ...expenses.map(e => [
         e.date, e.title, e.category, e.amount,
         e.paidBy.map(p => members.find(m => m.id === p.memberId)?.name || p.memberId).join('; '),
-        e.splitBetween.map(id => members.find(m => m.id === id)?.name || id).join('; '),
+        e.splitBetween.map(id => {
+          const name = members.find(m => m.id === id)?.name || id;
+          const share = e.splitAmounts?.find(item => item.memberId === id)?.amount;
+          return share == null ? name : `${name}: ${share}`;
+        }).join('; '),
       ]),
     ];
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');

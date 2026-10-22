@@ -50,6 +50,7 @@ create table if not exists expenses (
   split_type    text not null default 'equal',
   paid_by       jsonb not null default '[]',
   split_between jsonb not null default '[]',
+  split_amounts jsonb not null default '[]',
   notes         text default '',
   expense_date  date not null default current_date,
   expense_time  time not null default current_time,

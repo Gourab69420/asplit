@@ -38,6 +38,7 @@ cp .env.example .env.local
 supabase_schema.sql
 supabase_delete_migration.sql
 supabase_invites_migration.sql
+supabase_expense_splits_migration.sql
 ```
 
 4. Start the dev server

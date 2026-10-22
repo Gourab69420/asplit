@@ -24,7 +24,7 @@ function mapTrip(row, memberIds = [], adminIds = []) {
 function mapExpense(row) {
   return { id: row.id, tripId: row.trip_id, title: row.title, amount: Number(row.amount),
     category: row.category, splitType: row.split_type, paidBy: row.paid_by || [],
-    splitBetween: row.split_between || [], notes: row.notes || '',
+    splitBetween: row.split_between || [], splitAmounts: row.split_amounts || [], notes: row.notes || '',
     date: row.expense_date || '', time: row.expense_time?.slice(0, 5) || '',
     _pending: row._pending || false };
 }
@@ -32,9 +32,13 @@ function calcSettlements(members, expenses) {
   const balances = {};
   members.forEach(m => { balances[m.id] = 0; });
   expenses.forEach(exp => {
-    const share = exp.amount / (exp.splitBetween.length || 1);
     exp.paidBy.forEach(p => { balances[p.memberId] = (balances[p.memberId] || 0) + p.amount; });
-    exp.splitBetween.forEach(mid => { balances[mid] = (balances[mid] || 0) - share; });
+    if (exp.splitAmounts?.length) {
+      exp.splitAmounts.forEach(share => { balances[share.memberId] = (balances[share.memberId] || 0) - Number(share.amount || 0); });
+    } else {
+      const share = exp.amount / (exp.splitBetween.length || 1);
+      exp.splitBetween.forEach(mid => { balances[mid] = (balances[mid] || 0) - share; });
+    }
   });
   const creditors = [], debtors = [];
   Object.entries(balances).forEach(([id, bal]) => {
@@ -45,7 +49,7 @@ function calcSettlements(members, expenses) {
   let ci = 0, di = 0;
   while (ci < creditors.length && di < debtors.length) {
     const amt = Math.min(creditors[ci].amount, debtors[di].amount);
-    settlements.push({ from: debtors[di].id, to: creditors[ci].id, amount: Math.round(amt) });
+    settlements.push({ from: debtors[di].id, to: creditors[ci].id, amount: Math.round(amt * 100) / 100 });
     creditors[ci].amount -= amt; debtors[di].amount -= amt;
     if (creditors[ci].amount < 0.01) ci++;
     if (debtors[di].amount < 0.01) di++;
@@ -402,6 +406,7 @@ export function StoreProvider({ children }) {
       trip_id: form.tripId, title: form.title, amount: form.amount,
       category: form.category, split_type: form.splitType,
       paid_by: form.paidBy, split_between: form.splitBetween,
+      split_amounts: form.splitAmounts || [],
       notes: form.notes, expense_date: form.date, expense_time: form.time,
       created_by: userId,
     };
