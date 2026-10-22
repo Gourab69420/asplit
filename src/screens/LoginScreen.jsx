@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, ArrowRight, IndianRupee } from 'lucide-react';
+import { AlertCircle, ArrowRight, Equal, IndianRupee, Receipt, WalletCards } from 'lucide-react';
 import { useStore } from '../store';
 
 function GoogleIcon() {
@@ -52,35 +52,72 @@ export default function LoginScreen() {
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column',
-      background: 'var(--surface)', minHeight: '100dvh',
-      paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom)',
+      background: 'radial-gradient(ellipse at 50% 36%, #eaf1ff 0%, #f8faff 42%, #ffffff 78%)',
+      minHeight: '100dvh', padding: 'calc(var(--safe-top) + 18px) 22px calc(var(--safe-bottom) + 20px)',
     }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 28px 28px' }}>
+      <div style={{ width: '100%', maxWidth: 440, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 100, background: '#eff6ff', border: '1px solid #dbeafe', color: 'var(--accent)', fontSize: 13, fontWeight: 650 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#059669' }} /> ASplit
+        </div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 11px', borderRadius: 100, background: 'rgba(255,255,255,0.9)', border: '1px solid var(--border-light)', color: 'var(--text-2)', fontSize: 12, fontWeight: 550 }}>
+          <IndianRupee size={14} /> India · INR
+        </div>
+      </div>
+
+      <main style={{ flex: 1, width: '100%', maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px 0 20px' }}>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}
+          style={{ width: '100%', textAlign: 'center' }}
         >
-          <div style={{ width: 60, height: 60, borderRadius: 18, background: 'var(--accent)', display: 'grid', placeItems: 'center', margin: '0 auto 20px', boxShadow: '0 8px 22px rgba(37,99,235,0.2)' }}>
-            <span style={{ color: '#fff', fontSize: 30, fontWeight: 750, letterSpacing: -1 }}>A</span>
+          <div style={{ width: 72, height: 72, borderRadius: 21, background: 'linear-gradient(145deg, #4f83ef, #1d4ed8)', display: 'grid', placeItems: 'center', margin: '0 auto 20px', boxShadow: '0 10px 24px rgba(37,99,235,0.25)' }}>
+            <span style={{ color: '#fff', fontSize: 36, fontWeight: 750, letterSpacing: -1 }}>A</span>
           </div>
-          <p style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.7, color: 'var(--text)', marginBottom: 8 }}>Welcome to ASplit</p>
-          <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.6, maxWidth: 310, margin: '0 auto' }}>
-            Keep trip expenses clear. See who paid, who owes, and settle up with your group.
+          <p style={{ fontSize: 32, fontWeight: 750, letterSpacing: -1, color: '#111827', marginBottom: 8 }}>ASplit<span style={{ color: 'var(--accent)' }}>.</span></p>
+          <p style={{ fontSize: 16, color: '#475569', lineHeight: 1.55, maxWidth: 350, margin: '0 auto 26px' }}>
+            Split trip expenses with friends and settle up fairly.
           </p>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 22, padding: '7px 12px', borderRadius: 100, background: 'var(--accent-light)', color: 'var(--accent)', fontSize: 13, fontWeight: 600 }}>
-            <IndianRupee size={15} strokeWidth={2.2} /> Amounts in INR
+
+          <div style={{ textAlign: 'left', padding: '17px 17px 15px', border: '1px solid #e1e7f0', borderRadius: 20, background: 'rgba(255,255,255,0.92)', boxShadow: '0 10px 28px rgba(15,23,42,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, paddingBottom: 14, borderBottom: '1px solid #edf0f5' }}>
+              <div style={{ width: 44, height: 44, borderRadius: 14, display: 'grid', placeItems: 'center', background: '#eff6ff', color: 'var(--accent)', flexShrink: 0 }}><Receipt size={21} /></div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ color: '#111827', fontSize: 15, fontWeight: 650 }}>Goa weekend</p>
+                <p style={{ color: '#64748b', fontSize: 13, marginTop: 2 }}>Example trip · 4 people</p>
+              </div>
+              <span style={{ color: '#047857', background: '#ecfdf5', border: '1px solid #d1fae5', padding: '5px 9px', borderRadius: 100, fontSize: 11, fontWeight: 650 }}>Sample</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                {['GS', 'AN', 'RK', 'PM'].map((initials, index) => <span key={initials} style={{ width: 31, height: 31, marginLeft: index ? -7 : 0, border: '2px solid #fff', borderRadius: '50%', display: 'grid', placeItems: 'center', background: ['#5968e8', '#e48a13', '#d9468f', '#0d9f8c'][index], color: '#fff', fontSize: 9, fontWeight: 650, zIndex: 4 - index }}>{initials}</span>)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ color: '#334155', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Stay and local travel</p>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <p style={{ color: '#111827', fontSize: 15, fontWeight: 700 }}>₹12,000</p>
+                <p style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>₹3,000 each</p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 18 }}>
+            {[
+              { label: 'Live balances', Icon: WalletCards },
+              { label: 'Equal or custom split', Icon: Equal },
+              { label: 'UPI payments', Icon: IndianRupee },
+            ].map(({ label, Icon }) => <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 11px', borderRadius: 100, border: '1px solid #e2e8f0', background: 'rgba(255,255,255,0.85)', color: '#475569', fontSize: 12 }}><Icon size={14} color="var(--accent)" />{label}</span>)}
           </div>
         </motion.div>
-      </div>
+      </main>
 
       {/* Auth section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.3 }}
-        style={{ width: '100%', maxWidth: 408, margin: '0 auto', padding: '0 24px 32px' }}
+        style={{ width: '100%', maxWidth: 440, margin: '0 auto', padding: '0 0 8px' }}
       >
         {/* Error banner */}
         <AnimatePresence>
@@ -105,14 +142,14 @@ export default function LoginScreen() {
           disabled={loading}
           style={{
             width: '100%', height: 56, borderRadius: 14,
-            border: '1.5px solid var(--border)',
-            background: loading ? 'var(--surface-2)' : 'var(--surface)',
+            border: '1px solid #e2e8f0',
+            background: loading ? '#f1f5f9' : '#fff',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             gap: 12, cursor: loading ? 'not-allowed' : 'pointer',
             fontFamily: 'inherit', fontSize: 16, fontWeight: 600,
             color: 'var(--text)', transition: 'all 0.15s',
             WebkitTapHighlightColor: 'transparent',
-            boxShadow: 'var(--shadow-sm)',
+            boxShadow: '0 5px 16px rgba(15,23,42,0.08)',
           }}
         >
           {loading ? (
@@ -128,7 +165,7 @@ export default function LoginScreen() {
             <>
               <GoogleIcon />
               Continue with Google
-              <ArrowRight size={16} color="var(--text-3)" style={{ marginLeft: 'auto' }} />
+              <ArrowRight size={18} color="#94a3b8" style={{ marginLeft: 'auto' }} />
             </>
           )}
         </button>
