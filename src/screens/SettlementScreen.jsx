@@ -19,7 +19,6 @@ export default function SettlementScreen() {
   const isPayer = state.currentUser?.id === settlement.from;
   const upiParams = new URLSearchParams({
     pa: to?.upi?.trim() || '',
-    am: Number(settlement.amount).toFixed(2),
     cu: 'INR',
   });
   const upiLink = `upi://pay?${upiParams.toString()}`;
@@ -76,6 +75,9 @@ export default function SettlementScreen() {
                 <a href={upiLink} className="btn btn-primary btn-full" style={{ textDecoration: 'none' }}>
                   <Smartphone size={18} /> Pay using UPI app
                 </a>
+                <p className="t-caption c-3" style={{ textAlign: 'center', lineHeight: 1.6 }}>
+                  Enter the payment amount in your UPI app: {formatAmount(settlement.amount)}.
+                </p>
                 <button type="button" onClick={handleCopyUPI} className="btn btn-outline btn-full">
                   {upiCopied ? <Check size={18} /> : <Copy size={18} />}
                   {upiCopied ? 'UPI ID Copied' : 'Copy UPI ID'}
