@@ -139,6 +139,8 @@ body {
 .btn-ghost { background: transparent; color: var(--text-2); }
 .btn-ghost:hover { background: var(--surface-2); }
 .btn-danger { background: var(--danger-light); color: var(--danger); }
+.btn-success { background: var(--success); color: #fff; }
+.btn-success:hover { background: #16a34a; }
 .btn-outline { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
 .btn-full { width: 100%; }
 .btn-sm { min-height: 36px; padding: 0 14px; font-size: 13px; border-radius: var(--radius-sm); }

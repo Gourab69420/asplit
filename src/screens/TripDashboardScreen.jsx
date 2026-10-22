@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, UserPlus, Settings, ChevronRight, Hotel, Utensils, Car, ShoppingBag, Coffee, Fuel, Zap, MoreHorizontal, Trash2, Edit2, Check, X, AlertCircle, Download } from 'lucide-react';
+import { ArrowLeft, Plus, UserPlus, Settings, ChevronRight, Hotel, Utensils, Car, ShoppingBag, Coffee, Fuel, Zap, MoreHorizontal, Trash2, Edit2, Check, X, AlertCircle, Download, Share2, Copy, Link2, Clock, UserCheck, UserX } from 'lucide-react';
 import { useStore, AVATAR_COLORS } from '../store';
 import { supabase } from '../supabase';
 import { Avatar, AvatarStack, BottomSheet, formatAmount, formatDateShort, getCategoryMeta, EmptyState } from '../components/ui';
@@ -235,6 +235,8 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
     { label: 'Export Settlements (CSV)', icon: Download, onPress: exportSettlementsCSV },
   ];
 
+  const inviteLink = `${window.location.origin}/join/${trip.invite_code}`;
+
   return (
     <BottomSheet open={open} onClose={onClose} title="Trip Settings">
       <div style={{ padding: '8px 20px 32px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -253,6 +255,28 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
             </button>
           ))}
         </div>
+
+        {/* Invite Link — admin only */}
+        {isAdmin && (
+          <div className="card" style={{ padding: '4px 0' }}>
+            <button style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
+              background: 'none', border: 'none', cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            }} onClick={() => {
+              navigator.clipboard.writeText(inviteLink);
+              // Could add a toast here
+            }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Share2 size={17} color="var(--accent)" strokeWidth={1.8} />
+              </div>
+              <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', flex: 1, textAlign: 'left' }}>Share Invite Link</p>
+              <ChevronRight size={16} color="var(--text-3)" />
+            </button>
+            <div style={{ padding: '0 16px 16px', background: 'var(--surface-2)', borderRadius: 8, margin: '0 16px 8px', fontSize: 12, color: 'var(--text-2)', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+              {inviteLink}
+            </div>
+          </div>
+        )}
 
         {/* Delete — creator only */}
         {isCreator && (
@@ -362,12 +386,14 @@ function DeletedBanner({ deletedAt, onExportExpenses, onExportSettlements, membe
 
 // ── Main Screen ───────────────────────────────────────────────
 export default function TripDashboardScreen() {
-  const { state, nav, getTripExpenses, getTripMembers, getTripTotal, getSettlements } = useStore();
+  const { state, nav, getTripExpenses, getTripMembers, getTripTotal, getSettlements, approveJoinRequest, rejectJoinRequest } = useStore();
   const { tripId } = state.screenParams;
   const trip = state.trips.find(t => t.id === tripId);
   const [tab, setTab] = useState('expenses');
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+  const [pendingRequestsOpen, setPendingRequestsOpen] = useState(false);
 
   if (!trip) return null;
 
@@ -378,6 +404,9 @@ export default function TripDashboardScreen() {
   const { balances, settlements } = getSettlements(tripId);
   const myId = state.currentUser?.id;
   const myBalance = balances[myId] || 0;
+  const isAdmin = trip.createdBy === myId || members.some(m => m.id === myId && m.role === 'admin');
+  const pendingRequests = state.joinRequests.filter(r => r.tripId === tripId && r.status === 'pending');
+  const inviteLink = `${window.location.origin}/join/${trip.invite_code}`;
 
   const grouped = expenses.reduce((acc, e) => {
     if (!acc[e.date]) acc[e.date] = [];
@@ -394,6 +423,15 @@ export default function TripDashboardScreen() {
             <ArrowLeft size={20} />
           </button>
           <div className="flex gap-2">
+            {!isDeleted && isAdmin && (
+              <button className="btn btn-ghost btn-icon" style={{ color: '#fff', background: 'rgba(255,255,255,0.15)' }} onClick={() => {
+                navigator.clipboard.writeText(inviteLink);
+                setInviteLinkCopied(true);
+                setTimeout(() => setInviteLinkCopied(false), 2000);
+              }}>
+                <Link2 size={18} />
+              </button>
+            )}
             {!isDeleted && (
               <button className="btn btn-ghost btn-icon" style={{ color: '#fff', background: 'rgba(255,255,255,0.15)' }} onClick={() => setAddMemberOpen(true)}>
                 <UserPlus size={18} />
@@ -410,6 +448,20 @@ export default function TripDashboardScreen() {
         <p style={{ color: '#fff', fontSize: 22, fontWeight: 700, letterSpacing: -0.3, marginBottom: 12 }}>{trip.name}</p>
         <AvatarStack members={members} size="sm" />
       </div>
+
+      {/* Invite link copied toast */}
+      <AnimatePresence>
+        {inviteLinkCopied && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 200,
+              background: 'var(--success)', color: '#fff', padding: '10px 16px', borderRadius: 8,
+              fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Check size={14} /> Invite link copied
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Deleted banner */}
       {isDeleted && (
@@ -480,6 +532,39 @@ export default function TripDashboardScreen() {
                 </div>
               ))}
             </div>
+
+            {/* Pending join requests — admin only */}
+            {isAdmin && pendingRequests.length > 0 && (
+              <div className="card card-p" style={{ marginBottom: 12 }}>
+                <p className="t-heading mb-3" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Clock size={18} color="var(--warning)" />
+                  Pending Requests ({pendingRequests.length})
+                </p>
+                {pendingRequests.map(req => {
+                  const requester = members.find(m => m.id === req.userId) || state.members.find(m => m.id === req.userId);
+                  return (
+                    <div key={req.id} style={{ padding: '12px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                      <div className="flex items-center gap-3">
+                        <Avatar member={requester} size="sm" />
+                        <div>
+                          <p className="t-label">{requester?.name || 'Unknown'}</p>
+                          <p className="t-caption c-3">Requested {formatDateShort(req.requestedAt.split('T')[0])}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button className="btn btn-danger btn-sm" onClick={() => rejectJoinRequest(req.id)} style={{ minWidth: 80 }}>
+                          <UserX size={14} /> Decline
+                        </button>
+                        <button className="btn btn-success btn-sm" onClick={() => approveJoinRequest(req.id)} style={{ minWidth: 80, background: 'var(--success)', color: '#fff' }}>
+                          <UserCheck size={14} /> Approve
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <button className="btn btn-secondary btn-full" onClick={() => setAddMemberOpen(true)}>
               <UserPlus size={16} /> Add Member
             </button>

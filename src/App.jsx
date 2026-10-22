@@ -12,6 +12,7 @@ import AddExpenseScreen from './screens/AddExpenseScreen';
 import ExpenseDetailScreen from './screens/ExpenseDetailScreen';
 import SettlementScreen from './screens/SettlementScreen';
 import SheetSyncScreen from './screens/SheetSyncScreen';
+import JoinTripScreen from './screens/JoinTripScreen';
 
 const SCREEN_MAP = {
   home:          HomeScreen,
@@ -24,6 +25,7 @@ const SCREEN_MAP = {
   expenseDetail: ExpenseDetailScreen,
   settlement:    SettlementScreen,
   sheetSync:     SheetSyncScreen,
+  joinTrip:      JoinTripScreen,
 };
 
 const TAB_SCREENS = new Set(['home', 'trips', 'activity', 'profile']);
@@ -52,7 +54,10 @@ function AppInner() {
     );
   }
 
-  if (!currentUser || screen === 'login') {
+  // joinTrip screen doesn't require auth (shows trip preview + sign in prompt)
+  const isPublicScreen = screen === 'joinTrip' || screen === 'login';
+
+  if (!currentUser && !isPublicScreen) {
     return (
       <div className="app-shell">
         <AnimatePresence mode="wait">
@@ -86,7 +91,7 @@ function AppInner() {
           <Screen />
         </motion.div>
       </AnimatePresence>
-      <BottomNav />
+      {!isPublicScreen && <BottomNav />}
     </div>
   );
 }
