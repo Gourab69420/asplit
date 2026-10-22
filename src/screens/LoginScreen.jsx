@@ -141,11 +141,11 @@ export default function LoginScreen() {
           onClick={handleGoogle}
           disabled={loading}
           style={{
-            width: '100%', height: 56, borderRadius: 14,
+            width: '100%', height: 60, borderRadius: 16,
             border: '1px solid #e2e8f0',
             background: loading ? '#f1f5f9' : '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: 12, cursor: loading ? 'not-allowed' : 'pointer',
+            display: 'grid', gridTemplateColumns: '24px 1fr 24px', alignItems: 'center',
+            gap: 12, padding: '0 18px', cursor: loading ? 'not-allowed' : 'pointer',
             fontFamily: 'inherit', fontSize: 16, fontWeight: 600,
             color: 'var(--text)', transition: 'all 0.15s',
             WebkitTapHighlightColor: 'transparent',
@@ -153,23 +153,28 @@ export default function LoginScreen() {
           }}
         >
           {loading ? (
-            <>
+            <span style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
               <span style={{
                 width: 18, height: 18, border: '2px solid var(--border)',
                 borderTopColor: 'var(--accent)', borderRadius: '50%',
                 animation: 'spin 0.7s linear infinite', display: 'inline-block',
               }} />
               Signing in...
-            </>
+            </span>
           ) : (
             <>
-              <GoogleIcon />
-              Continue with Google
-              <ArrowRight size={18} color="#94a3b8" style={{ marginLeft: 'auto' }} />
+              <span style={{ display: 'grid', placeItems: 'center' }}><GoogleIcon /></span>
+              <span style={{ textAlign: 'center' }}>Continue with Google</span>
+              <ArrowRight size={18} color="#94a3b8" style={{ justifySelf: 'end' }} />
             </>
           )}
         </button>
-
+        <p className="t-caption c-3 text-center" style={{ margin: '17px auto 0', maxWidth: 360, lineHeight: 1.7, fontSize: 12 }}>
+          By continuing, you agree to our{' '}
+          <a href="https://app-companion-430619.appspot.com/projects/13143459525278599433?usegapi=1&jsh=m%3B%2F_%2Fscs%2Fabc-static%2F_%2Fjs%2Fk%3Dgapi.lb.en.etOqPKhAhvg.O%2Fd%3D1%2Frs%3DAHpOoo-l5JrVgGKVELwC844E6riBHX86-w%2Fm%3D__features__#terms" target="_blank" rel="noreferrer" style={{ color: '#475569', textUnderlineOffset: 3 }}>Terms of Service</a>
+          {' '}and{' '}
+          <a href="https://app-companion-430619.appspot.com/projects/13143459525278599433?usegapi=1&jsh=m%3B%2F_%2Fscs%2Fabc-static%2F_%2Fjs%2Fk%3Dgapi.lb.en.etOqPKhAhvg.O%2Fd%3D1%2Frs%3DAHpOoo-l5JrVgGKVELwC844E6riBHX86-w%2Fm%3D__features__#privacy" target="_blank" rel="noreferrer" style={{ color: '#475569', textUnderlineOffset: 3 }}>Privacy Policy</a>.
+        </p>
       </motion.div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
