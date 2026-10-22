@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Smartphone, Check } from 'lucide-react';
+import { ArrowLeft, Copy, Check } from 'lucide-react';
 import { useStore } from '../store';
 import { Avatar, formatAmount } from '../components/ui';
 
@@ -8,6 +8,8 @@ export default function SettlementScreen() {
   const { state, nav } = useStore();
   const { settlement, tripId } = state.screenParams;
   const [paid, setPaid] = useState(false);
+  const [upiCopied, setUpiCopied] = useState(false);
+  const [copyError, setCopyError] = useState('');
 
   if (!settlement) return null;
 
@@ -15,7 +17,17 @@ export default function SettlementScreen() {
   const from = members.find(m => m.id === settlement.from);
   const to = members.find(m => m.id === settlement.to);
   const isPayer = state.currentUser?.id === settlement.from;
-  const upiLink = `upi://pay?pa=${encodeURIComponent(to?.upi || '')}&pn=${encodeURIComponent(to?.name || '')}&am=${settlement.amount}&cu=INR&tn=ASplit+Settlement`;
+
+  const handleCopyUPI = async () => {
+    try {
+      await navigator.clipboard.writeText(to.upi);
+      setUpiCopied(true);
+      setCopyError('');
+      window.setTimeout(() => setUpiCopied(false), 2500);
+    } catch {
+      setCopyError(`Copy unavailable. Select and copy this UPI ID: ${to.upi}`);
+    }
+  };
 
   const handleMarkPaid = () => {
     setPaid(true);
@@ -54,9 +66,16 @@ export default function SettlementScreen() {
         {isPayer ? (
           <>
             {to?.upi ? (
-              <a href={upiLink} className="btn btn-primary btn-full" style={{ textDecoration: 'none' }}>
-                <Smartphone size={18} /> Pay using UPI app
-              </a>
+              <>
+                <button type="button" onClick={handleCopyUPI} className="btn btn-primary btn-full">
+                  {upiCopied ? <Check size={18} /> : <Copy size={18} />}
+                  {upiCopied ? 'UPI ID Copied' : 'Copy UPI ID'}
+                </button>
+                <p className="t-caption c-3" style={{ textAlign: 'center', lineHeight: 1.6 }}>
+                  Open any UPI app, choose payment by UPI ID, paste it, and enter {formatAmount(settlement.amount)}.
+                </p>
+                {copyError && <p role="alert" className="t-caption c-2" style={{ textAlign: 'center', userSelect: 'all' }}>{copyError}</p>}
+              </>
             ) : (
               <div className="card card-p t-caption c-2" style={{ textAlign: 'center' }}>
                 {to?.name || 'The recipient'} needs to add a UPI ID to their profile before you can pay through a UPI app.
