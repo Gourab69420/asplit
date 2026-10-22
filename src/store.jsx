@@ -138,6 +138,10 @@ function reducer(state, action) {
     case 'REPLACE_EXPENSE': return { ...state, expenses: state.expenses.map(e => e.id === action.tempId ? action.expense : e) };
     case 'DELETE_EXPENSE':  return { ...state, expenses: state.expenses.filter(e => e.id !== action.id) };
     case 'DELETE_TRIP': {
+      const deletedAt = action.deletedAt || new Date().toISOString();
+      return { ...state, trips: state.trips.map(trip => trip.id === action.tripId ? { ...trip, deletedAt } : trip) };
+    }
+    case 'PURGE_TRIP': {
       const remainingTrips = state.trips.filter(t => t.id !== action.tripId);
       const usedMemberIds = new Set(remainingTrips.flatMap(t => t.members || []));
       const remainingMembers = state.members.filter(m => usedMemberIds.has(m.id) || m.id === state.currentUser?.id);
@@ -269,7 +273,12 @@ export function StoreProvider({ children }) {
 
   useEffect(() => {
     if (!state.currentUser?.id) return undefined;
-    const refresh = () => { refreshNotifications(); refreshSettlementPayments(); };
+    const refresh = () => {
+      refreshNotifications();
+      refreshSettlementPayments();
+      const userId = stateRef.current.currentUser?.id;
+      if (userId && navigator.onLine) loadUserData(userId);
+    };
     const onVisibilityChange = () => { if (document.visibilityState === 'visible') refresh(); };
     const interval = window.setInterval(refreshSettlementPayments, 60 * 1000);
     window.addEventListener('focus', refresh);
@@ -280,6 +289,14 @@ export function StoreProvider({ children }) {
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [state.currentUser?.id, refreshNotifications, refreshSettlementPayments]);
+
+  useEffect(() => {
+    const timers = state.trips.filter(trip => trip.deletedAt).map(trip => {
+      const remainingMs = new Date(trip.deletedAt).getTime() + 48 * 60 * 60 * 1000 - Date.now();
+      return window.setTimeout(() => dispatch({ type: 'PURGE_TRIP', tripId: trip.id }), Math.max(0, remainingMs));
+    });
+    return () => timers.forEach(window.clearTimeout);
+  }, [state.trips]);
 
   // ── persist to localStorage on every state change ─────────
   useEffect(() => { saveCache(state); }, [state]);
@@ -396,11 +413,23 @@ export function StoreProvider({ children }) {
 
   async function loadUserData(userId) {
     const { data: memberRows } = await supabase.from('trip_members').select('trip_id, role').eq('user_id', userId);
-    if (!memberRows?.length) return;
+    if (!memberRows?.length) {
+      dispatch({ type: 'SET_TRIPS', trips: [] });
+      dispatch({ type: 'SET_MEMBERS', members: stateRef.current.currentUser ? [stateRef.current.currentUser] : [] });
+      dispatch({ type: 'SET_EXPENSES', expenses: [] });
+      dispatch({ type: 'SET_SETTLEMENT_PAYMENTS', payments: [] });
+      return;
+    }
     const tripIds = memberRows.map(r => r.trip_id);
 
     const { data: tripRows } = await supabase.from('trips').select('*').in('id', tripIds).order('created_at', { ascending: false });
-    if (!tripRows?.length) return;
+    if (!tripRows?.length) {
+      dispatch({ type: 'SET_TRIPS', trips: [] });
+      dispatch({ type: 'SET_MEMBERS', members: stateRef.current.currentUser ? [stateRef.current.currentUser] : [] });
+      dispatch({ type: 'SET_EXPENSES', expenses: [] });
+      dispatch({ type: 'SET_SETTLEMENT_PAYMENTS', payments: [] });
+      return;
+    }
 
     const { data: allMemberRows } = await supabase.from('trip_members').select('trip_id, user_id, role').in('trip_id', tripIds);
     const trips = tripRows.map(t => {
@@ -496,13 +525,14 @@ export function StoreProvider({ children }) {
   const deleteTrip = useCallback(async (tripId) => {
     if (!navigator.onLine) throw new Error('Connect to the internet before deleting a trip.');
     if (String(tripId).startsWith('tmp_')) {
-      dispatch({ type: 'DELETE_TRIP', tripId });
+      dispatch({ type: 'PURGE_TRIP', tripId });
       return;
     }
-    const { data, error } = await supabase.from('trips').delete().eq('id', tripId).select('id').single();
+    const deletedAt = new Date().toISOString();
+    const { data, error } = await supabase.from('trips').update({ deleted_at: deletedAt }).eq('id', tripId).select('id, deleted_at').single();
     if (error) throw error;
     if (!data) throw new Error('Trip not found or you do not have permission to delete it.');
-    dispatch({ type: 'DELETE_TRIP', tripId });
+    dispatch({ type: 'DELETE_TRIP', tripId, deletedAt: data.deleted_at });
   }, []);
 
   const createTripInvite = useCallback(async (tripId) => {
