@@ -19,7 +19,7 @@ function mapTrip(row, memberIds = []) {
   return { id: row.id, name: row.name, description: row.description || '', currency: row.currency || 'INR',
     startDate: row.start_date || '', endDate: row.end_date || '', status: row.status || 'upcoming',
     coverColor: row.cover_color || '#2563eb', createdBy: row.created_by, members: memberIds,
-    deletedAt: row.deleted_at || null, inviteCode: row.invite_code };
+    deletedAt: row.deleted_at || null };
 }
 function mapExpense(row) {
   return { id: row.id, tripId: row.trip_id, title: row.title, amount: Number(row.amount),
