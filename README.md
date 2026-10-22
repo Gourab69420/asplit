@@ -33,9 +33,11 @@ npm install
 cp .env.example .env.local
 ```
 
-3. Run the SQL schema in your Supabase SQL Editor
+3. Run the SQL schema and migrations in your Supabase SQL Editor, in this order:
 ```
 supabase_schema.sql
+supabase_delete_migration.sql
+supabase_invites_migration.sql
 ```
 
 4. Start the dev server

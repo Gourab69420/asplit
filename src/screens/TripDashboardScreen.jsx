@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, UserPlus, Settings, ChevronRight, Hotel, Utensils, Car, ShoppingBag, Coffee, Fuel, Zap, MoreHorizontal, Trash2, Edit2, Check, X, AlertCircle, Download } from 'lucide-react';
-import { useStore, AVATAR_COLORS } from '../store';
-import { supabase } from '../supabase';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Plus, UserPlus, Link2, Settings, ChevronRight, Hotel, Utensils, Car, ShoppingBag, Coffee, Fuel, Zap, MoreHorizontal, Trash2, Edit2, Check, AlertCircle, Download } from 'lucide-react';
+import { useStore } from '../store';
 import { Avatar, AvatarStack, BottomSheet, formatAmount, formatDateShort, getCategoryMeta, EmptyState } from '../components/ui';
 import { Receipt } from 'lucide-react';
+import TripInviteSheet from '../components/TripInviteSheet';
 
 const CATEGORY_ICONS = { hotel: Hotel, food: Utensils, taxi: Car, transport: Car, activity: Zap, shopping: ShoppingBag, coffee: Coffee, fuel: Fuel, other: MoreHorizontal };
 
@@ -60,112 +60,6 @@ function ExpenseCard({ expense, members, onPress }) {
         </div>
       </div>
     </motion.div>
-  );
-}
-
-// ── Add Member Sheet ──────────────────────────────────────────
-function AddMemberSheet({ open, onClose, tripId, existingMemberIds }) {
-  const { state, dispatch } = useStore();
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
-  const handleAdd = async () => {
-    if (!name.trim()) { setError('Name is required'); return; }
-    setLoading(true); setError(''); setSuccess('');
-    try {
-      // Check if user exists by email
-      let userId = null;
-      let memberProfile = null;
-      if (email.trim()) {
-        const { data: found } = await supabase
-          .from('profiles').select('*').eq('email', email.trim()).maybeSingle();
-        if (found) { userId = found.id; memberProfile = found; }
-      }
-      if (!userId) {
-        // Create a placeholder profile for the member
-        const color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
-        const { data: created, error: ce } = await supabase
-          .from('profiles')
-          .insert({ name: name.trim(), email: email.trim(), avatar_color: color })
-          .select().single();
-        if (ce) throw ce;
-        userId = created.id;
-        memberProfile = created;
-      }
-      if (existingMemberIds.includes(userId)) {
-        setError('This person is already in the trip'); setLoading(false); return;
-      }
-      // Add to trip_members
-      const { error: me } = await supabase
-        .from('trip_members')
-        .insert({ trip_id: tripId, user_id: userId, role: 'member' });
-      if (me) throw me;
-
-      // Update trip members list in state
-      const initials = name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-      const newMember = {
-        id: userId, name: name.trim(), email: email.trim(),
-        upi: memberProfile?.upi_id || '',
-        initials, color: memberProfile?.avatar_color || AVATAR_COLORS[0], role: 'member',
-      };
-      dispatch({ type: 'ADD_MEMBER', member: newMember });
-      // Update trip's members array
-      dispatch({ type: 'ADD_TRIP_MEMBER', tripId, userId });
-      setSuccess(`${name.trim()} added to the trip!`);
-      setName(''); setEmail('');
-      setTimeout(() => { setSuccess(''); onClose(); }, 1200);
-    } catch (e) {
-      setError(e.message || 'Failed to add member');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <BottomSheet open={open} onClose={onClose} title="Add Member">
-      <div style={{ padding: '8px 20px 32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <AnimatePresence>
-          {error && (
-            <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              style={{ background: 'var(--danger-light)', borderRadius: 10, padding: '10px 14px', display: 'flex', gap: 8, alignItems: 'center' }}>
-              <AlertCircle size={14} color="var(--danger)" />
-              <p style={{ fontSize: 13, color: 'var(--danger)' }}>{error}</p>
-            </motion.div>
-          )}
-          {success && (
-            <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              style={{ background: 'var(--success-light)', borderRadius: 10, padding: '10px 14px', display: 'flex', gap: 8, alignItems: 'center' }}>
-              <Check size={14} color="var(--success)" />
-              <p style={{ fontSize: 13, color: 'var(--success)' }}>{success}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="input-group">
-          <label className="input-label">Full Name *</label>
-          <input className="input" placeholder="e.g. Priya Patel" value={name} onChange={e => { setName(e.target.value); setError(''); }} />
-        </div>
-
-        <div className="input-group">
-          <label className="input-label">Email (optional)</label>
-          <input className="input" type="email" inputMode="email" placeholder="priya@example.com" value={email} onChange={e => { setEmail(e.target.value); setError(''); }} />
-          <p className="t-caption c-3">If they have an account, they'll be linked automatically</p>
-        </div>
-
-        <button className="btn btn-primary btn-full" onClick={handleAdd} disabled={loading || !!success}>
-          {loading ? (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
-              Adding...
-            </span>
-          ) : 'Add to Trip'}
-        </button>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </BottomSheet>
   );
 }
 
@@ -367,12 +261,13 @@ export default function TripDashboardScreen() {
   const { tripId } = state.screenParams;
   const trip = state.trips.find(t => t.id === tripId);
   const [tab, setTab] = useState('expenses');
-  const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   if (!trip) return null;
 
   const isDeleted = !!trip.deletedAt;
+  const isAdmin = (trip.adminIds || []).includes(state.currentUser?.id);
   const members = getTripMembers(trip);
   const expenses = getTripExpenses(tripId);
   const total = getTripTotal(tripId);
@@ -395,9 +290,9 @@ export default function TripDashboardScreen() {
             <ArrowLeft size={20} />
           </button>
           <div className="flex gap-2">
-            {!isDeleted && (
-              <button className="btn btn-ghost btn-icon" style={{ color: '#fff', background: 'rgba(255,255,255,0.15)' }} onClick={() => setAddMemberOpen(true)}>
-                <UserPlus size={18} />
+            {!isDeleted && isAdmin && (
+              <button className="btn btn-ghost btn-icon" style={{ color: '#fff', background: 'rgba(255,255,255,0.15)' }} onClick={() => setInviteOpen(true)} aria-label="Invite members and review requests">
+                <Link2 size={18} />
               </button>
             )}
             <button className="btn btn-ghost btn-icon" style={{ color: '#fff', background: 'rgba(255,255,255,0.15)' }} onClick={() => setSettingsOpen(true)}>
@@ -481,9 +376,9 @@ export default function TripDashboardScreen() {
                 </div>
               ))}
             </div>
-            <button className="btn btn-secondary btn-full" onClick={() => setAddMemberOpen(true)}>
-              <UserPlus size={16} /> Add Member
-            </button>
+            {!isDeleted && isAdmin && <button className="btn btn-secondary btn-full" onClick={() => setInviteOpen(true)}>
+              <UserPlus size={16} /> Invite Members
+            </button>}
           </>
         )}
 
@@ -534,12 +429,6 @@ export default function TripDashboardScreen() {
       )}
 
       {/* Sheets */}
-      <AddMemberSheet
-        open={addMemberOpen}
-        onClose={() => setAddMemberOpen(false)}
-        tripId={tripId}
-        existingMemberIds={trip.members || []}
-      />
       <TripSettingsSheet
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -548,6 +437,7 @@ export default function TripDashboardScreen() {
         expenses={expenses}
         settlements={settlements}
       />
+      <TripInviteSheet open={inviteOpen} onClose={() => setInviteOpen(false)} trip={trip} />
     </div>
   );
 }

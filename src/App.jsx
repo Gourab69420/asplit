@@ -12,6 +12,7 @@ import AddExpenseScreen from './screens/AddExpenseScreen';
 import ExpenseDetailScreen from './screens/ExpenseDetailScreen';
 import SettlementScreen from './screens/SettlementScreen';
 import SheetSyncScreen from './screens/SheetSyncScreen';
+import JoinTripScreen from './screens/JoinTripScreen';
 
 function EditTripScreen() {
   const { state } = useStore();
@@ -30,6 +31,7 @@ const SCREEN_MAP = {
   expenseDetail: ExpenseDetailScreen,
   settlement:    SettlementScreen,
   sheetSync:     SheetSyncScreen,
+  joinInvite:    JoinTripScreen,
 };
 
 const TAB_SCREENS = new Set(['home', 'trips', 'activity', 'profile']);

@@ -242,6 +242,14 @@ export function StoreProvider({ children }) {
       await loadUserData(userId);
       flushQueue();
     }
+    const inviteToken = new URLSearchParams(window.location.search).get('invite') || sessionStorage.getItem('asplit_invite_token');
+    if (inviteToken) {
+      sessionStorage.removeItem('asplit_invite_token');
+      const url = new URL(window.location.href);
+      url.searchParams.delete('invite');
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+      dispatch({ type: 'NAV', screen: 'joinInvite', params: { token: inviteToken } });
+    }
   }
 
   async function loadUserData(userId) {
@@ -273,11 +281,16 @@ export function StoreProvider({ children }) {
 
   // ── auth actions ───────────────────────────────────────────
   const signInGoogle = useCallback(async () => {
+    const inviteToken = new URLSearchParams(window.location.search).get('invite');
+    if (inviteToken) sessionStorage.setItem('asplit_invite_token', inviteToken);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin, queryParams: { prompt: 'select_account' } },
     });
-    if (error) throw error;
+    if (error) {
+      sessionStorage.removeItem('asplit_invite_token');
+      throw error;
+    }
   }, []);
 
   const signOut = useCallback(async () => {
@@ -346,6 +359,43 @@ export function StoreProvider({ children }) {
     return data.deleted_at;
   }, []);
 
+  const createTripInvite = useCallback(async (tripId) => {
+    const { data, error } = await supabase.rpc('create_trip_invite', { p_trip_id: tripId });
+    if (error) throw error;
+    return `${window.location.origin}/?invite=${encodeURIComponent(data)}`;
+  }, []);
+
+  const getTripInvite = useCallback(async (token) => {
+    const { data, error } = await supabase.rpc('get_trip_invite', { p_token: token });
+    if (error) throw error;
+    return data?.[0] || null;
+  }, []);
+
+  const requestTripJoin = useCallback(async (token) => {
+    const { data, error } = await supabase.rpc('request_trip_join', { p_token: token });
+    if (error) throw error;
+    return data;
+  }, []);
+
+  const listTripJoinRequests = useCallback(async (tripId) => {
+    const { data, error } = await supabase.rpc('list_trip_join_requests', { p_trip_id: tripId });
+    if (error) throw error;
+    return data || [];
+  }, []);
+
+  const decideTripJoinRequest = useCallback(async (requestId, approve) => {
+    const { data, error } = await supabase.rpc('decide_trip_join_request', { p_request_id: requestId, p_approve: approve });
+    if (error) throw error;
+    const userId = stateRef.current.currentUser?.id;
+    if (userId) await loadUserData(userId);
+    return data;
+  }, []);
+
+  const refreshUserData = useCallback(async () => {
+    const userId = stateRef.current.currentUser?.id;
+    if (userId && navigator.onLine) await loadUserData(userId);
+  }, []);
+
   const addExpense = useCallback(async (form) => {
     const userId = stateRef.current.currentUser?.id;
     const payload = {
@@ -403,7 +453,9 @@ export function StoreProvider({ children }) {
     <StoreCtx.Provider value={{
       state, dispatch, nav,
       getTripExpenses, getTripMembers, getMember, getTripTotal, getSettlements,
-      signInGoogle, signOut, createTrip, updateTrip, deleteTrip, addExpense, deleteExpense, updateProfile,
+      signInGoogle, signOut, createTrip, updateTrip, deleteTrip, createTripInvite,
+      getTripInvite, requestTripJoin, listTripJoinRequests, decideTripJoinRequest, refreshUserData,
+      addExpense, deleteExpense, updateProfile,
     }}>
       {children}
     </StoreCtx.Provider>
