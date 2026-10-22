@@ -57,7 +57,7 @@ function TripCard({ trip, onPress }) {
 export default function HomeScreen() {
   const { state, nav, notifications } = useStore();
   const { trips, currentUser } = state;
-  const unreadNotifications = notifications.filter(notification => notification.unread).length;
+  const unreadNotifications = notifications.filter(notification => !notification.viewedAt).length;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 

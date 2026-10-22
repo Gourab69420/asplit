@@ -29,6 +29,12 @@ function mapExpense(row) {
     createdBy: row.created_by || '', createdAt: row.created_at || '',
     _pending: row._pending || false };
 }
+function mapNotification(row) {
+  return {
+    id: row.id, type: row.type, title: row.title, body: row.body,
+    data: row.data || {}, createdAt: row.created_at || '', viewedAt: row.viewed_at || null,
+  };
+}
 function calcSettlements(members, expenses) {
   const balances = {};
   members.forEach(m => { balances[m.id] = 0; });
@@ -70,7 +76,7 @@ function saveCache(state) {
     localStorage.setItem(LS_KEY, JSON.stringify({
       trips: state.trips, members: state.members,
       expenses: state.expenses, darkMode: state.darkMode,
-      currentUser: state.currentUser, readNotificationIds: state.readNotificationIds,
+      currentUser: state.currentUser, notifications: state.notifications,
     }));
   } catch {}
 }
@@ -90,7 +96,7 @@ const initialState = {
   expenses:    cache?.expenses    || [],
   currentUser: cache?.currentUser || null,
   darkMode:    cache?.darkMode    ?? false,
-  readNotificationIds: cache?.readNotificationIds || [],
+  notifications: cache?.notifications || [],
   exitPromptOpen: false, loading: true,
   isOnline: navigator.onLine,
 };
@@ -99,11 +105,12 @@ const initialState = {
 function reducer(state, action) {
   switch (action.type) {
     case 'NAV':             return { ...state, screen: action.screen, screenParams: action.params || {} };
-    case 'MARK_NOTIFICATIONS_READ': return { ...state, readNotificationIds: [...new Set([...state.readNotificationIds, ...action.ids])] };
+    case 'SET_NOTIFICATIONS': return { ...state, notifications: action.notifications };
+    case 'MARK_NOTIFICATIONS_VIEWED': return { ...state, notifications: state.notifications.map(item => action.ids.includes(item.id) && !item.viewedAt ? { ...item, viewedAt: action.viewedAt } : item) };
     case 'SHOW_EXIT_PROMPT': return { ...state, exitPromptOpen: true };
     case 'HIDE_EXIT_PROMPT': return { ...state, exitPromptOpen: false };
     case 'SET_USER':        return { ...state, currentUser: action.user, screen: action.user ? 'home' : 'login', loading: false };
-    case 'SIGN_OUT':        return { ...initialState, trips: [], members: [], expenses: [], currentUser: null, readNotificationIds: [], screen: 'login', loading: false };
+    case 'SIGN_OUT':        return { ...initialState, trips: [], members: [], expenses: [], notifications: [], currentUser: null, screen: 'login', loading: false };
     case 'SET_TRIPS':       return { ...state, trips: action.trips };
     case 'SET_MEMBERS':     return { ...state, members: action.members };
     case 'SET_EXPENSES':    return { ...state, expenses: action.expenses };
@@ -159,7 +166,13 @@ export function StoreProvider({ children }) {
     if (navStackRef.current.length > 1) window.history.back();
     else dispatch({ type: 'SHOW_EXIT_PROMPT' });
   };
-  const markNotificationsRead = (ids) => dispatch({ type: 'MARK_NOTIFICATIONS_READ', ids });
+  const markNotificationsViewed = useCallback(async (ids) => {
+    if (!ids.length) return;
+    const viewedAt = new Date().toISOString();
+    const { error } = await supabase.rpc('mark_app_notifications_viewed', { p_notification_ids: ids });
+    if (error) throw error;
+    dispatch({ type: 'MARK_NOTIFICATIONS_VIEWED', ids, viewedAt });
+  }, []);
 
   useEffect(() => {
     const rootEntry = navStackRef.current[0];
@@ -199,16 +212,24 @@ export function StoreProvider({ children }) {
     if (!trip) return { balances: {}, settlements: [] };
     return calcSettlements(getTripMembers(trip), getTripExpenses(tripId));
   };
-  const notifications = state.expenses
-    .filter(expense => expense.createdBy && expense.createdBy !== state.currentUser?.id)
-    .map(expense => ({
-      id: expense.id,
-      expense,
-      trip: state.trips.find(trip => trip.id === expense.tripId),
-      member: state.members.find(member => member.id === expense.createdBy),
-      unread: !state.readNotificationIds.includes(expense.id),
-    }))
-    .sort((a, b) => (b.expense.createdAt || b.expense.date).localeCompare(a.expense.createdAt || a.expense.date));
+  const notifications = state.notifications.filter(item => !item.viewedAt || Date.now() - Date.parse(item.viewedAt) < 24 * 60 * 60 * 1000);
+
+  const refreshNotifications = useCallback(async () => {
+    if (!navigator.onLine || !stateRef.current.currentUser?.id) return;
+    const { data, error } = await supabase.rpc('get_app_notifications');
+    if (error) {
+      console.error('Could not refresh notifications:', error.message);
+      return;
+    }
+    dispatch({ type: 'SET_NOTIFICATIONS', notifications: (data || []).map(mapNotification) });
+  }, []);
+
+  useEffect(() => {
+    if (!state.currentUser?.id) return undefined;
+    refreshNotifications();
+    const interval = window.setInterval(refreshNotifications, 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, [state.currentUser?.id, refreshNotifications]);
 
   // ── persist to localStorage on every state change ─────────
   useEffect(() => { saveCache(state); }, [state]);
@@ -524,7 +545,7 @@ export function StoreProvider({ children }) {
 
   return (
     <StoreCtx.Provider value={{
-      state, dispatch, nav, goBack, notifications, markNotificationsRead,
+      state, dispatch, nav, goBack, notifications, markNotificationsViewed, refreshNotifications,
       getTripExpenses, getTripMembers, getMember, getTripTotal, getSettlements,
       signInGoogle, signOut, createTrip, updateTrip, deleteTrip, createTripInvite,
       getTripInvite, requestTripJoin, listTripJoinRequests, decideTripJoinRequest, refreshUserData,

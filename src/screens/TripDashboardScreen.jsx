@@ -266,10 +266,14 @@ function DeletedBanner({ deletedAt, members, expenses, settlements, trip }) {
 // ── Main Screen ───────────────────────────────────────────────
 export default function TripDashboardScreen() {
   const { state, nav, goBack, getTripExpenses, getTripMembers, getTripTotal, getSettlements } = useStore();
-  const { tripId } = state.screenParams;
+  const { tripId, openJoinRequests } = state.screenParams;
   const trip = state.trips.find(t => t.id === tripId);
   const [tab, setTab] = useState('expenses');
   const [inviteOpen, setInviteOpen] = useState(false);
+
+  useEffect(() => {
+    if (openJoinRequests) setInviteOpen(true);
+  }, [tripId, openJoinRequests]);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   if (!trip) return null;
