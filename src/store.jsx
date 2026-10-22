@@ -35,7 +35,13 @@ function mapNotification(row) {
     data: row.data || {}, createdAt: row.created_at || '', viewedAt: row.viewed_at || null,
   };
 }
-function calcSettlements(members, expenses) {
+function mapSettlementPayment(row) {
+  return {
+    id: row.id, tripId: row.trip_id, from: row.from_user_id,
+    to: row.to_user_id, amount: Number(row.amount), createdAt: row.created_at || '',
+  };
+}
+function calcSettlements(members, expenses, payments = []) {
   const balances = {};
   members.forEach(m => { balances[m.id] = 0; });
   expenses.forEach(exp => {
@@ -46,6 +52,10 @@ function calcSettlements(members, expenses) {
       const share = exp.amount / (exp.splitBetween.length || 1);
       exp.splitBetween.forEach(mid => { balances[mid] = (balances[mid] || 0) - share; });
     }
+  });
+  payments.forEach(payment => {
+    balances[payment.from] = (balances[payment.from] || 0) + Number(payment.amount || 0);
+    balances[payment.to] = (balances[payment.to] || 0) - Number(payment.amount || 0);
   });
   const creditors = [], debtors = [];
   Object.entries(balances).forEach(([id, bal]) => {
@@ -77,6 +87,7 @@ function saveCache(state) {
       trips: state.trips, members: state.members,
       expenses: state.expenses, darkMode: state.darkMode,
       currentUser: state.currentUser, notifications: state.notifications,
+      settlementPayments: state.settlementPayments,
     }));
   } catch {}
 }
@@ -97,6 +108,7 @@ const initialState = {
   currentUser: cache?.currentUser || null,
   darkMode:    cache?.darkMode    ?? false,
   notifications: cache?.notifications || [],
+  settlementPayments: cache?.settlementPayments || [],
   exitPromptOpen: false, loading: true,
   isOnline: navigator.onLine,
 };
@@ -107,10 +119,12 @@ function reducer(state, action) {
     case 'NAV':             return { ...state, screen: action.screen, screenParams: action.params || {} };
     case 'SET_NOTIFICATIONS': return { ...state, notifications: action.notifications };
     case 'MARK_NOTIFICATIONS_VIEWED': return { ...state, notifications: state.notifications.map(item => action.ids.includes(item.id) && !item.viewedAt ? { ...item, viewedAt: action.viewedAt } : item) };
+    case 'SET_SETTLEMENT_PAYMENTS': return { ...state, settlementPayments: action.payments };
+    case 'ADD_SETTLEMENT_PAYMENT': return { ...state, settlementPayments: state.settlementPayments.some(payment => payment.id === action.payment.id) ? state.settlementPayments : [...state.settlementPayments, action.payment] };
     case 'SHOW_EXIT_PROMPT': return { ...state, exitPromptOpen: true };
     case 'HIDE_EXIT_PROMPT': return { ...state, exitPromptOpen: false };
     case 'SET_USER':        return { ...state, currentUser: action.user, screen: action.user ? 'home' : 'login', loading: false };
-    case 'SIGN_OUT':        return { ...initialState, trips: [], members: [], expenses: [], notifications: [], currentUser: null, screen: 'login', loading: false };
+    case 'SIGN_OUT':        return { ...initialState, trips: [], members: [], expenses: [], notifications: [], settlementPayments: [], currentUser: null, screen: 'login', loading: false };
     case 'SET_TRIPS':       return { ...state, trips: action.trips };
     case 'SET_MEMBERS':     return { ...state, members: action.members };
     case 'SET_EXPENSES':    return { ...state, expenses: action.expenses };
@@ -210,7 +224,8 @@ export function StoreProvider({ children }) {
   const getSettlements  = (tripId) => {
     const trip = state.trips.find(t => t.id === tripId);
     if (!trip) return { balances: {}, settlements: [] };
-    return calcSettlements(getTripMembers(trip), getTripExpenses(tripId));
+    const payments = state.settlementPayments.filter(payment => payment.tripId === tripId);
+    return calcSettlements(getTripMembers(trip), getTripExpenses(tripId), payments);
   };
   const notifications = state.notifications.filter(item => !item.viewedAt || Date.now() - Date.parse(item.viewedAt) < 24 * 60 * 60 * 1000);
 
@@ -368,6 +383,10 @@ export function StoreProvider({ children }) {
 
     const { data: expRows } = await supabase.from('expenses').select('*').in('trip_id', tripIds).order('expense_date', { ascending: false });
     dispatch({ type: 'SET_EXPENSES', expenses: (expRows || []).map(mapExpense) });
+
+    const { data: paymentRows, error: paymentError } = await supabase.from('settlement_payments').select('*').in('trip_id', tripIds);
+    if (paymentError) console.error('Could not load settlement payments:', paymentError.message);
+    else dispatch({ type: 'SET_SETTLEMENT_PAYMENTS', payments: (paymentRows || []).map(mapSettlementPayment) });
   }
 
   // ── auth actions ───────────────────────────────────────────
@@ -520,6 +539,17 @@ export function StoreProvider({ children }) {
     await supabase.from('expenses').delete().eq('id', id);
   }, []);
 
+  const markSettlementPaid = useCallback(async ({ id, tripId, to, amount }) => {
+    const from = stateRef.current.currentUser?.id;
+    if (!from) throw new Error('Not signed in');
+    if (!navigator.onLine) throw new Error('Connect to the internet before recording a payment.');
+    const { error } = await supabase.rpc('mark_settlement_paid', {
+      p_payment_id: id, p_trip_id: tripId, p_to_user_id: to, p_amount: amount,
+    });
+    if (error) throw error;
+    dispatch({ type: 'ADD_SETTLEMENT_PAYMENT', payment: { id, tripId, from, to, amount: Number(amount), createdAt: new Date().toISOString() } });
+  }, []);
+
   const updateProfile = useCallback(async (data) => {
     const userId = stateRef.current.currentUser?.id;
     if (!userId) throw new Error('Not signed in');
@@ -549,7 +579,7 @@ export function StoreProvider({ children }) {
       getTripExpenses, getTripMembers, getMember, getTripTotal, getSettlements,
       signInGoogle, signOut, createTrip, updateTrip, deleteTrip, createTripInvite,
       getTripInvite, requestTripJoin, listTripJoinRequests, decideTripJoinRequest, refreshUserData,
-      addExpense, deleteExpense, updateProfile,
+      addExpense, deleteExpense, markSettlementPaid, updateProfile,
     }}>
       {children}
     </StoreCtx.Provider>

@@ -5,9 +5,12 @@ import { useStore } from '../store';
 import { Avatar, formatAmount } from '../components/ui';
 
 export default function SettlementScreen() {
-  const { state, goBack } = useStore();
+  const { state, goBack, markSettlementPaid } = useStore();
   const { settlement } = state.screenParams;
   const [paid, setPaid] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [paymentId] = useState(() => crypto.randomUUID());
   const [copied, setCopied] = useState('');
   const [copyError, setCopyError] = useState('');
 
@@ -37,9 +40,18 @@ export default function SettlementScreen() {
     }
   };
 
-  const handleMarkPaid = () => {
-    setPaid(true);
-    setTimeout(() => goBack(), 1200);
+  const handleMarkPaid = async () => {
+    setSaving(true);
+    setPaymentError('');
+    try {
+      await markSettlementPaid({ id: paymentId, tripId: state.screenParams.tripId, to: settlement.to, amount: settlement.amount });
+      setPaid(true);
+      setTimeout(() => goBack(), 1200);
+    } catch (error) {
+      setPaymentError(error.message || 'Could not record this payment.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -117,8 +129,8 @@ export default function SettlementScreen() {
 
             <AnimatePresence mode="wait">
               {!paid ? (
-                <motion.button key="mark" className="btn btn-outline btn-full" onClick={handleMarkPaid} exit={{ opacity: 0, scale: 0.95 }}>
-                  <Check size={18} /> Mark as Paid
+                <motion.button key="mark" className="btn btn-outline btn-full" onClick={handleMarkPaid} disabled={saving} exit={{ opacity: 0, scale: 0.95 }}>
+                  <Check size={18} /> {saving ? 'Recording payment…' : 'Mark as Paid'}
                 </motion.button>
               ) : (
                 <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="btn btn-full" style={{ background: 'var(--success-light)', color: 'var(--success)', border: 'none', cursor: 'default' }}>
@@ -126,6 +138,7 @@ export default function SettlementScreen() {
                 </motion.div>
               )}
             </AnimatePresence>
+            {paymentError && <p role="alert" className="t-caption c-danger" style={{ textAlign: 'center' }}>{paymentError}</p>}
           </>
         ) : (
           <div className="card card-p" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
