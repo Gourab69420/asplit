@@ -10,6 +10,17 @@ const CATEGORY_ICONS = { hotel: Hotel, food: Utensils, taxi: Car, transport: Car
 
 const memberName = (members, id) => members.find(member => member.id === id)?.name || id || '';
 const csvEscape = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+function formatCsvDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(date);
+  const part = type => parts.find(item => item.type === type)?.value || '';
+  return `${part('day')}/${part('month')}/${part('year')} ${part('hour')}:${part('minute')}`;
+}
 function downloadCsv(filename, rows) {
   const csv = `\uFEFF${rows.map(row => row.map(csvEscape).join(',')).join('\r\n')}`;
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -34,7 +45,7 @@ function expenseShareBreakdown(expense, members) {
 
 function expenseCsvRows(trip, members, expenses) {
   return [
-    ['Trip', 'Expense ID', 'Expense Date', 'Expense Time', 'Title', 'Category', 'Notes', 'Total Amount', 'Currency', 'Split Type', 'Payer Count', 'Payer Amount Breakdown', 'Participant Count', 'Share Breakdown', 'Created By', 'Created At'],
+    ['Trip', 'Expense ID', 'Expense Date', 'Expense Time', 'Title', 'Category', 'Notes', 'Total Amount', 'Currency', 'Split Type', 'Payer Count', 'Payer Amount Breakdown', 'Participant Count', 'Share Breakdown', 'Created By', 'Created At (Local, 24h)'],
     ...expenses.map(expense => [
       trip.name, expense.id, expense.date, expense.time, expense.title, expense.category, expense.notes,
       Number(expense.amount || 0).toFixed(2), trip.currency, expense.splitType,
@@ -42,7 +53,7 @@ function expenseCsvRows(trip, members, expenses) {
       expense.paidBy.map(payer => `${memberName(members, payer.memberId)}: ${Number(payer.amount || 0).toFixed(2)}`).join(' | '),
       expense.splitBetween.length,
       expenseShareBreakdown(expense, members).join(' | '),
-      memberName(members, expense.createdBy), expense.createdAt,
+      memberName(members, expense.createdBy), formatCsvDateTime(expense.createdAt),
     ]),
   ];
 }
@@ -58,7 +69,7 @@ function settlementCsvRows(trip, members, settlements, paymentHistory) {
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
     .map(payment => [
       trip.name, 'Payment record', payment.id, name(payment.from), name(payment.to), Number(payment.amount || 0).toFixed(2), trip.currency,
-      statusText(payment.status), payment.createdAt, payment.decidedAt || '', name(payment.decidedBy),
+      statusText(payment.status), formatCsvDateTime(payment.createdAt), formatCsvDateTime(payment.decidedAt), name(payment.decidedBy),
       payment.status === 'approved' ? 'Recipient approved; balance reduced.' : payment.status === 'pending' ? 'Balance is unchanged until recipient approval.' : 'Balance was not changed.',
     ]);
   const outstandingRows = settlements.map(settlement => [
@@ -66,7 +77,7 @@ function settlementCsvRows(trip, members, settlements, paymentHistory) {
     'Still due', '', '', '', 'Calculated from expenses and recipient-approved payments; pending requests do not reduce the balance.',
   ]);
   return [
-    ['Trip', 'Record Type', 'Payment ID', 'From', 'To', 'Amount', 'Currency', 'Status', 'Requested / Recorded At', 'Decision At', 'Approved / Declined By', 'Details'],
+    ['Trip', 'Record Type', 'Payment ID', 'From', 'To', 'Amount', 'Currency', 'Status', 'Requested / Recorded At (Local, 24h)', 'Decision At (Local, 24h)', 'Approved / Declined By', 'Details'],
     ...historyRows,
     ...outstandingRows,
   ];
