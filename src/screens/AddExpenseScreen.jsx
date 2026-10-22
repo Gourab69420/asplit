@@ -198,7 +198,7 @@ export default function AddExpenseScreen() {
           <SectionHeading icon={WalletCards} title="Who paid?" description={mode === 'normal' ? 'Choose one or more payers. Any leftover cents are shared automatically.' : 'Choose each payer and enter the amount they covered.'} action={mode === 'custom' && payerIds.length > 0 ? <button type="button" className="btn btn-ghost btn-sm" onClick={distributePayers}><Equal size={14} /> Split equally</button> : null} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {members.map(member => (
-              <MemberChoice key={member.id} member={member} label="as payer" selected={payerIds.includes(member.id)} amount={mode === 'normal' ? normalPayers[member.id] : payerAmounts[member.id]} customized={mode === 'custom'} onToggle={() => toggleId(member.id, payerIds)} onAmountChange={value => { setPayerAmounts(current => ({ ...current, [member.id]: value })); setErrors(current => ({ ...current, payers: undefined })); }} />
+              <MemberChoice key={member.id} member={member} label="as payer" selected={payerIds.includes(member.id)} amount={mode === 'normal' ? normalPayers[member.id] : payerAmounts[member.id]} customized={mode === 'custom'} onToggle={() => toggleId(member.id, payerIds, setPayerIds)} onAmountChange={value => { setPayerAmounts(current => ({ ...current, [member.id]: value })); setErrors(current => ({ ...current, payers: undefined })); }} />
             ))}
           </div>
           {errors.payers && <p role="alert" style={{ fontSize: 12, color: 'var(--danger)', marginTop: 6 }}>{errors.payers}</p>}
