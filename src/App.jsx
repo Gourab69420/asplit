@@ -13,12 +13,18 @@ import ExpenseDetailScreen from './screens/ExpenseDetailScreen';
 import SettlementScreen from './screens/SettlementScreen';
 import SheetSyncScreen from './screens/SheetSyncScreen';
 
+function EditTripScreen() {
+  const { state } = useStore();
+  return <CreateTripScreen editTripId={state.screenParams?.tripId} />;
+}
+
 const SCREEN_MAP = {
   home:          HomeScreen,
   trips:         TripsScreen,
   activity:      ActivityScreen,
   profile:       ProfileScreen,
   createTrip:    CreateTripScreen,
+  editTrip:      EditTripScreen,
   tripDashboard: TripDashboardScreen,
   addExpense:    AddExpenseScreen,
   expenseDetail: ExpenseDetailScreen,

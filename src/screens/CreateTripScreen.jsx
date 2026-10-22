@@ -1,16 +1,24 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, MapPin } from 'lucide-react';
-import { useStore, AVATAR_COLORS } from '../store';
+import { useStore } from '../store';
 
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD'];
 const COVER_COLORS = ['#2563eb', '#7c3aed', '#db2777', '#059669', '#d97706', '#0891b2', '#dc2626', '#65a30d'];
 
-export default function CreateTripScreen() {
-  const { nav, createTrip } = useStore();
+export default function CreateTripScreen({ editTripId: requestedEditTripId } = {}) {
+  const { state, nav, createTrip, updateTrip } = useStore();
+  const editTripId = requestedEditTripId ?? state.screenParams?.editTripId;
+  const trip = state.trips.find(t => t.id === editTripId);
   const [form, setForm] = useState({ name: '', description: '', currency: 'INR', startDate: '', endDate: '', coverColor: COVER_COLORS[0] });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (trip) setForm({ name: trip.name, description: trip.description || '', currency: trip.currency || 'INR', startDate: trip.startDate || '', endDate: trip.endDate || '', coverColor: trip.coverColor || COVER_COLORS[0] });
+    else setForm({ name: '', description: '', currency: 'INR', startDate: '', endDate: '', coverColor: COVER_COLORS[0] });
+    setErrors({});
+  }, [editTripId, trip]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -25,11 +33,15 @@ export default function CreateTripScreen() {
   };
 
   const handleCreate = async () => {
+    if (editTripId && !trip) {
+      setErrors({ submit: 'This trip could not be found. Return to the trip list and try again.' });
+      return;
+    }
     if (!validate()) return;
     setSaving(true);
     try {
-      const trip = await createTrip(form);
-      nav('tripDashboard', { tripId: trip.id });
+      const savedTrip = editTripId ? await updateTrip(editTripId, form) : await createTrip(form);
+      nav('tripDashboard', { tripId: savedTrip.id });
     } catch (e) {
       setErrors({ submit: e.message });
       setSaving(false);
@@ -40,8 +52,8 @@ export default function CreateTripScreen() {
     <div className="screen">
       {/* Header */}
       <div style={{ padding: '16px 20px', background: 'var(--surface)', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button className="btn btn-ghost btn-icon" onClick={() => nav('home')}><ArrowLeft size={20} /></button>
-        <p className="t-heading">New Trip</p>
+        <button className="btn btn-ghost btn-icon" onClick={() => editTripId ? nav('tripDashboard', { tripId: editTripId }) : nav('home')}><ArrowLeft size={20} /></button>
+        <p className="t-heading">{editTripId ? 'Edit Trip' : 'New Trip'}</p>
       </div>
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -115,8 +127,8 @@ export default function CreateTripScreen() {
         )}
 
         {errors.submit && <p style={{ fontSize: 12, color: 'var(--danger)', textAlign: 'center' }}>{errors.submit}</p>}
-        <button className="btn btn-primary btn-full" style={{ marginTop: 8 }} onClick={handleCreate} disabled={saving}>
-          {saving ? 'Creating...' : 'Create Trip'}
+        <button className="btn btn-primary btn-full" style={{ marginTop: 8 }} onClick={handleCreate} disabled={saving || (!!editTripId && !trip)}>
+          {saving ? (editTripId ? 'Saving...' : 'Creating...') : (editTripId ? 'Save Changes' : 'Create Trip')}
         </button>
       </motion.div>
     </div>

@@ -15,10 +15,10 @@ function mapProfile(row) {
   return { id: row.id, name: row.name || '', email: row.email || '', upi: row.upi_id || '',
     initials: getInitials(row.name), color: row.avatar_color || pickColor(row.id) };
 }
-function mapTrip(row, memberIds = []) {
+function mapTrip(row, memberIds = [], adminIds = []) {
   return { id: row.id, name: row.name, description: row.description || '', currency: row.currency || 'INR',
     startDate: row.start_date || '', endDate: row.end_date || '', status: row.status || 'upcoming',
-    coverColor: row.cover_color || '#2563eb', createdBy: row.created_by, members: memberIds,
+    coverColor: row.cover_color || '#2563eb', createdBy: row.created_by, members: memberIds, adminIds,
     deletedAt: row.deleted_at || null };
 }
 function mapExpense(row) {
@@ -99,6 +99,7 @@ function reducer(state, action) {
     case 'SET_MEMBERS':     return { ...state, members: action.members };
     case 'SET_EXPENSES':    return { ...state, expenses: action.expenses };
     case 'ADD_TRIP':        return { ...state, trips: [action.trip, ...state.trips] };
+    case 'UPDATE_TRIP':     return { ...state, trips: state.trips.map(t => t.id === action.trip.id ? action.trip : t) };
     case 'ADD_TRIP_MEMBER': return { ...state, trips: state.trips.map(t => t.id === action.tripId ? { ...t, members: [...(t.members || []), action.userId] } : t) };
     case 'ADD_EXPENSE':     return { ...state, expenses: [action.expense, ...state.expenses] };
     case 'REPLACE_EXPENSE': return { ...state, expenses: state.expenses.map(e => e.id === action.tempId ? action.expense : e) };
@@ -251,10 +252,12 @@ export function StoreProvider({ children }) {
     const { data: tripRows } = await supabase.from('trips').select('*').in('id', tripIds).order('created_at', { ascending: false });
     if (!tripRows?.length) return;
 
-    const { data: allMemberRows } = await supabase.from('trip_members').select('trip_id, user_id').in('trip_id', tripIds);
+    const { data: allMemberRows } = await supabase.from('trip_members').select('trip_id, user_id, role').in('trip_id', tripIds);
     const trips = tripRows.map(t => {
-      const mIds = (allMemberRows || []).filter(r => r.trip_id === t.id).map(r => r.user_id);
-      return mapTrip(t, mIds);
+      const members = (allMemberRows || []).filter(r => r.trip_id === t.id);
+      const mIds = members.map(r => r.user_id);
+      const admins = members.filter(r => r.role === 'admin').map(r => r.user_id);
+      return mapTrip(t, mIds, admins);
     });
     dispatch({ type: 'SET_TRIPS', trips });
 
@@ -295,19 +298,52 @@ export function StoreProvider({ children }) {
     };
     if (!navigator.onLine) {
       const tempId = 'tmp_' + Date.now();
-      const mapped = mapTrip({ ...payload, id: tempId, _pending: true }, [userId]);
+      const mapped = mapTrip({ ...payload, id: tempId, _pending: true }, [userId], [userId]);
       dispatch({ type: 'ADD_TRIP', trip: mapped });
       const q = loadQueue(); q.push({ type: 'CREATE_TRIP', payload, userId, tempId }); saveQueue(q);
       return mapped;
     }
     const { data: trip, error } = await supabase.from('trips').insert(payload).select().single();
     if (error) throw error;
-    await supabase.from('trip_members').insert({ trip_id: trip.id, user_id: userId, role: 'admin' });
-    const mapped = mapTrip(trip, [userId]);
+    const { error: memberError } = await supabase.from('trip_members').insert({ trip_id: trip.id, user_id: userId, role: 'admin' });
+    if (memberError) throw memberError;
+    const mapped = mapTrip(trip, [userId], [userId]);
     dispatch({ type: 'ADD_TRIP', trip: mapped });
     const cur = stateRef.current;
     dispatch({ type: 'SET_MEMBERS', members: cur.members.some(m => m.id === userId) ? cur.members : [...cur.members, mapProfile({ id: userId, name: cur.currentUser.name, email: cur.currentUser.email, upi_id: cur.currentUser.upi, avatar_color: cur.currentUser.color })] });
     return mapped;
+  }, []);
+
+  const updateTrip = useCallback(async (tripId, form) => {
+    const existing = stateRef.current.trips.find(t => t.id === tripId);
+    if (!existing) throw new Error('Trip not found');
+    const payload = {
+      name: form.name.trim(), description: form.description || '', currency: form.currency,
+      start_date: form.startDate || null, end_date: form.endDate || null,
+      cover_color: form.coverColor,
+    };
+    if (!navigator.onLine || String(tripId).startsWith('tmp_')) {
+      const updated = { ...existing, ...form, name: payload.name };
+      dispatch({ type: 'UPDATE_TRIP', trip: updated });
+      return updated;
+    }
+    const { data, error } = await supabase.from('trips').update(payload).eq('id', tripId).select().single();
+    if (error) throw error;
+    const updated = mapTrip(data, existing.members, existing.adminIds || []);
+    dispatch({ type: 'UPDATE_TRIP', trip: updated });
+    return updated;
+  }, []);
+
+  const deleteTrip = useCallback(async (tripId) => {
+    const deletedAt = new Date().toISOString();
+    if (!navigator.onLine || String(tripId).startsWith('tmp_')) {
+      dispatch({ type: 'DELETE_TRIP', tripId, deletedAt });
+      return deletedAt;
+    }
+    const { data, error } = await supabase.from('trips').update({ deleted_at: deletedAt }).eq('id', tripId).select('id, deleted_at').single();
+    if (error) throw error;
+    dispatch({ type: 'DELETE_TRIP', tripId, deletedAt: data.deleted_at });
+    return data.deleted_at;
   }, []);
 
   const addExpense = useCallback(async (form) => {
@@ -367,7 +403,7 @@ export function StoreProvider({ children }) {
     <StoreCtx.Provider value={{
       state, dispatch, nav,
       getTripExpenses, getTripMembers, getMember, getTripTotal, getSettlements,
-      signInGoogle, signOut, createTrip, addExpense, deleteExpense, updateProfile,
+      signInGoogle, signOut, createTrip, updateTrip, deleteTrip, addExpense, deleteExpense, updateProfile,
     }}>
       {children}
     </StoreCtx.Provider>

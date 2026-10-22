@@ -1,42 +1,45 @@
--- ============================================================
--- Run this in Supabase SQL Editor
--- ============================================================
+-- Add soft-delete support without changing or removing existing trip data.
+-- Safe to run more than once in the Supabase SQL Editor.
 
--- 1. Clear all existing trip data (expenses, members, trips)
-truncate table expenses restart identity cascade;
-truncate table trip_members restart identity cascade;
-truncate table trips restart identity cascade;
+alter table public.trips
+  add column if not exists deleted_at timestamptz default null;
 
--- 2. Add soft-delete column to trips
-alter table trips add column if not exists deleted_at timestamptz default null;
-
--- 3. Function to hard-delete trips after 48 hours (run via pg_cron or manually)
-create or replace function cleanup_deleted_trips()
-returns void language plpgsql security definer as $$
-begin
-  delete from trips
-  where deleted_at is not null
-    and deleted_at < now() - interval '48 hours';
-end;
+create or replace function public.is_trip_admin(p_trip_id uuid, p_user_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.trip_members
+    where trip_id = p_trip_id
+      and user_id = p_user_id
+      and role = 'admin'
+  );
 $$;
 
--- 4. Schedule auto-cleanup every hour (requires pg_cron extension)
--- Enable pg_cron in Supabase: Dashboard → Database → Extensions → pg_cron
-select cron.schedule(
-  'cleanup-deleted-trips',
-  '0 * * * *',
-  'select cleanup_deleted_trips()'
-);
+drop policy if exists "trips_creator_update" on public.trips;
+drop policy if exists "trips_admin_update" on public.trips;
+create policy "trips_admin_update" on public.trips
+  for update using (public.is_trip_admin(id, auth.uid()))
+  with check (public.is_trip_admin(id, auth.uid()));
 
--- 5. Update RLS: members can still read soft-deleted trips for 48h
-drop policy if exists "trips_member_read" on trips;
-create policy "trips_member_read" on trips
-  for select using (
-    created_by = auth.uid()
-    or is_trip_member(id, auth.uid())
-  );
+drop policy if exists "trips_creator_delete" on public.trips;
+drop policy if exists "trips_admin_delete" on public.trips;
+create policy "trips_admin_delete" on public.trips
+  for delete using (public.is_trip_admin(id, auth.uid()));
 
--- Creator can soft-delete (update deleted_at)
-drop policy if exists "trips_creator_update" on trips;
-create policy "trips_creator_update" on trips
-  for update using (created_by = auth.uid());
+create or replace function public.cleanup_deleted_trips()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  delete from public.trips
+  where deleted_at is not null
+    and deleted_at < now() - interval '48 hours';
+$$;
+
+-- Enable pg_cron separately in Supabase if automatic cleanup is desired.
+-- Otherwise cleanup_deleted_trips() can be run manually.

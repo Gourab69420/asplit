@@ -25,6 +25,7 @@ create table if not exists trips (
   end_date    date,
   status      text not null default 'upcoming',
   cover_color text not null default '#2563eb',
+  deleted_at  timestamptz default null,
   created_by  uuid references profiles(id) on delete set null,
   created_at  timestamptz default now()
 );
@@ -95,7 +96,9 @@ drop policy if exists "profiles_delete"         on profiles;
 drop policy if exists "trips_member_read"       on trips;
 drop policy if exists "trips_creator_write"     on trips;
 drop policy if exists "trips_creator_update"    on trips;
+drop policy if exists "trips_admin_update"       on trips;
 drop policy if exists "trips_creator_delete"    on trips;
+drop policy if exists "trips_admin_delete"       on trips;
 drop policy if exists "trip_members_read"       on trip_members;
 drop policy if exists "trip_members_insert"     on trip_members;
 drop policy if exists "trip_members_delete"     on trip_members;
@@ -134,6 +137,21 @@ as $$
   );
 $$;
 
+create or replace function is_trip_admin(p_trip_id uuid, p_user_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from trip_members
+    where trip_id = p_trip_id
+      and user_id = p_user_id
+      and role = 'admin'
+  );
+$$;
+
 -- ── trips policies ────────────────────────────────────────────
 -- Use the helper function — NO direct subquery on trip_members here
 create policy "trips_member_read" on trips
@@ -145,11 +163,12 @@ create policy "trips_member_read" on trips
 create policy "trips_creator_write" on trips
   for insert with check (created_by = auth.uid());
 
-create policy "trips_creator_update" on trips
-  for update using (created_by = auth.uid());
+create policy "trips_admin_update" on trips
+  for update using (is_trip_admin(id, auth.uid()))
+  with check (is_trip_admin(id, auth.uid()));
 
-create policy "trips_creator_delete" on trips
-  for delete using (created_by = auth.uid());
+create policy "trips_admin_delete" on trips
+  for delete using (is_trip_admin(id, auth.uid()));
 
 -- ── trip_members policies ─────────────────────────────────────
 -- IMPORTANT: NO reference back to trips table here (would cause recursion)

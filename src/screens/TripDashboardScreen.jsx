@@ -171,23 +171,23 @@ function AddMemberSheet({ open, onClose, tripId, existingMemberIds }) {
 
 // ── Trip Settings Sheet ───────────────────────────────────────
 function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements }) {
-  const { state, nav, dispatch } = useStore();
+  const { state, nav, deleteTrip } = useStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
-  const isCreator = trip.createdBy === state.currentUser?.id;
+  const isAdmin = (trip.adminIds || []).includes(state.currentUser?.id);
   const isSettled = settlements.length === 0;
 
   const handleDelete = async () => {
     setDeleting(true);
+    setDeleteError('');
     try {
-      const deletedAt = new Date().toISOString();
-      await supabase.from('trips').update({ deleted_at: deletedAt }).eq('id', trip.id);
-      dispatch({ type: 'DELETE_TRIP', tripId: trip.id, deletedAt });
+      await deleteTrip(trip.id);
       onClose();
       nav('home');
-    } catch (e) { console.error(e); }
-    setDeleting(false);
+    } catch (e) { setDeleteError(e.message || 'Could not delete trip'); }
+    finally { setDeleting(false); }
   };
 
   const exportCSV = () => {
@@ -230,7 +230,7 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
   };
 
   const settingsItems = [
-    { label: 'Edit Trip Details', icon: Edit2, onPress: () => { onClose(); nav('createTrip', { editTripId: trip.id }); } },
+    ...(isAdmin && !trip.deletedAt ? [{ label: 'Edit Trip Details', icon: Edit2, onPress: () => { onClose(); nav('editTrip', { tripId: trip.id }); } }] : []),
     { label: 'Export Expenses (CSV)', icon: Download, onPress: exportCSV },
     { label: 'Export Settlements (CSV)', icon: Download, onPress: exportSettlementsCSV },
   ];
@@ -254,8 +254,8 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
           ))}
         </div>
 
-        {/* Delete — creator only */}
-        {isCreator && (
+        {/* Delete — trip admins only */}
+        {isAdmin && !trip.deletedAt && (
           <div className="card" style={{ padding: '4px 0' }}>
             {!confirmDelete ? (
               <button onClick={() => setConfirmDelete(true)} style={{
@@ -275,7 +275,8 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
                     <p style={{ fontSize: 13, color: 'var(--warning)' }}>{settlements.length} unsettled payment{settlements.length > 1 ? 's' : ''} remain. Make sure everyone has paid before deleting.</p>
                   </div>
                 )}
-                <p style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500 }}>Delete "{trip.name}"? All expenses and member data will be permanently removed.</p>
+                <p style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500 }}>Delete "{trip.name}"? It will be hidden from active trips, with data retained for up to 48 hours.</p>
+                {deleteError && <p role="alert" style={{ fontSize: 12, color: 'var(--danger)' }}>{deleteError}</p>}
                 <div className="flex gap-3">
                   <button className="btn btn-outline flex-1 btn-sm" onClick={() => setConfirmDelete(false)}>Cancel</button>
                   <button className="btn btn-danger flex-1 btn-sm" onClick={handleDelete} disabled={deleting}>
