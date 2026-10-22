@@ -26,6 +26,7 @@ function mapExpense(row) {
     category: row.category, splitType: row.split_type, paidBy: row.paid_by || [],
     splitBetween: row.split_between || [], splitAmounts: row.split_amounts || [], notes: row.notes || '',
     date: row.expense_date || '', time: row.expense_time?.slice(0, 5) || '',
+    createdBy: row.created_by || '', createdAt: row.created_at || '',
     _pending: row._pending || false };
 }
 function calcSettlements(members, expenses) {
@@ -69,7 +70,7 @@ function saveCache(state) {
     localStorage.setItem(LS_KEY, JSON.stringify({
       trips: state.trips, members: state.members,
       expenses: state.expenses, darkMode: state.darkMode,
-      currentUser: state.currentUser,
+      currentUser: state.currentUser, readNotificationIds: state.readNotificationIds,
     }));
   } catch {}
 }
@@ -89,7 +90,8 @@ const initialState = {
   expenses:    cache?.expenses    || [],
   currentUser: cache?.currentUser || null,
   darkMode:    cache?.darkMode    ?? false,
-  notifications: 0, loading: true,
+  readNotificationIds: cache?.readNotificationIds || [],
+  exitPromptOpen: false, loading: true,
   isOnline: navigator.onLine,
 };
 
@@ -97,8 +99,11 @@ const initialState = {
 function reducer(state, action) {
   switch (action.type) {
     case 'NAV':             return { ...state, screen: action.screen, screenParams: action.params || {} };
+    case 'MARK_NOTIFICATIONS_READ': return { ...state, readNotificationIds: [...new Set([...state.readNotificationIds, ...action.ids])] };
+    case 'SHOW_EXIT_PROMPT': return { ...state, exitPromptOpen: true };
+    case 'HIDE_EXIT_PROMPT': return { ...state, exitPromptOpen: false };
     case 'SET_USER':        return { ...state, currentUser: action.user, screen: action.user ? 'home' : 'login', loading: false };
-    case 'SIGN_OUT':        return { ...initialState, trips: [], members: [], expenses: [], currentUser: null, screen: 'login', loading: false };
+    case 'SIGN_OUT':        return { ...initialState, trips: [], members: [], expenses: [], currentUser: null, readNotificationIds: [], screen: 'login', loading: false };
     case 'SET_TRIPS':       return { ...state, trips: action.trips };
     case 'SET_MEMBERS':     return { ...state, members: action.members };
     case 'SET_EXPENSES':    return { ...state, expenses: action.expenses };
@@ -132,7 +137,58 @@ export function StoreProvider({ children }) {
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  const nav = (screen, params) => dispatch({ type: 'NAV', screen, params });
+  const navStackRef = useRef([{ key: 'asplit-root', screen: 'home', params: {} }]);
+  const navSequenceRef = useRef(0);
+  const historyInitializedRef = useRef(false);
+  const nav = (screen, params = {}, { replace = false } = {}) => {
+    const stack = navStackRef.current;
+    const current = stack[stack.length - 1];
+    const nextParams = params || {};
+    if (!replace && current.screen === screen && JSON.stringify(current.params) === JSON.stringify(nextParams)) return;
+    const entry = { key: `asplit-${++navSequenceRef.current}`, screen, params: nextParams };
+    if (replace && stack.length > 1) {
+      stack[stack.length - 1] = entry;
+      window.history.replaceState({ asplitRoute: entry }, '', window.location.href);
+    } else {
+      stack.push(entry);
+      window.history.pushState({ asplitRoute: entry }, '', window.location.href);
+    }
+    dispatch({ type: 'NAV', screen, params: nextParams });
+  };
+  const goBack = () => {
+    if (navStackRef.current.length > 1) window.history.back();
+    else dispatch({ type: 'SHOW_EXIT_PROMPT' });
+  };
+  const markNotificationsRead = (ids) => dispatch({ type: 'MARK_NOTIFICATIONS_READ', ids });
+
+  useEffect(() => {
+    const rootEntry = navStackRef.current[0];
+    const rootState = { asplitRoute: rootEntry, asplitRootSentinel: true };
+    if (!historyInitializedRef.current) {
+      historyInitializedRef.current = true;
+      window.history.replaceState(rootState, '', window.location.href);
+      window.history.pushState(rootState, '', window.location.href);
+    }
+    const onPopState = event => {
+      const entry = event.state?.asplitRoute;
+      const stack = navStackRef.current;
+      if (entry) {
+        const wasAtRoot = stack.length === 1;
+        const foundAt = stack.findIndex(item => item.key === entry.key);
+        if (foundAt >= 0) stack.splice(foundAt + 1);
+        else stack.push(entry);
+        dispatch({ type: 'NAV', screen: entry.screen, params: entry.params });
+        if (wasAtRoot) {
+          window.history.pushState(rootState, '', window.location.href);
+          dispatch({ type: 'SHOW_EXIT_PROMPT' });
+        }
+      } else {
+        window.history.pushState(rootState, '', window.location.href);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   const getTripExpenses = (tripId) => state.expenses.filter(e => e.tripId === tripId);
   const getTripMembers  = (trip)   => state.members.filter(m => (trip?.members || []).includes(m.id));
@@ -143,6 +199,16 @@ export function StoreProvider({ children }) {
     if (!trip) return { balances: {}, settlements: [] };
     return calcSettlements(getTripMembers(trip), getTripExpenses(tripId));
   };
+  const notifications = state.expenses
+    .filter(expense => expense.createdBy && expense.createdBy !== state.currentUser?.id)
+    .map(expense => ({
+      id: expense.id,
+      expense,
+      trip: state.trips.find(trip => trip.id === expense.tripId),
+      member: state.members.find(member => member.id === expense.createdBy),
+      unread: !state.readNotificationIds.includes(expense.id),
+    }))
+    .sort((a, b) => (b.expense.createdAt || b.expense.date).localeCompare(a.expense.createdAt || a.expense.date));
 
   // ── persist to localStorage on every state change ─────────
   useEffect(() => { saveCache(state); }, [state]);
@@ -252,7 +318,7 @@ export function StoreProvider({ children }) {
       const url = new URL(window.location.href);
       url.searchParams.delete('invite');
       window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
-      dispatch({ type: 'NAV', screen: 'joinInvite', params: { token: inviteToken } });
+      nav('joinInvite', { token: inviteToken });
     }
   }
 
@@ -458,7 +524,7 @@ export function StoreProvider({ children }) {
 
   return (
     <StoreCtx.Provider value={{
-      state, dispatch, nav,
+      state, dispatch, nav, goBack, notifications, markNotificationsRead,
       getTripExpenses, getTripMembers, getMember, getTripTotal, getSettlements,
       signInGoogle, signOut, createTrip, updateTrip, deleteTrip, createTripInvite,
       getTripInvite, requestTripJoin, listTripJoinRequests, decideTripJoinRequest, refreshUserData,

@@ -55,8 +55,9 @@ function TripCard({ trip, onPress }) {
 }
 
 export default function HomeScreen() {
-  const { state, nav } = useStore();
-  const { trips, currentUser, notifications } = state;
+  const { state, nav, notifications } = useStore();
+  const { trips, currentUser } = state;
+  const unreadNotifications = notifications.filter(notification => notification.unread).length;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
@@ -76,9 +77,9 @@ export default function HomeScreen() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="btn btn-ghost btn-icon-sq" style={{ position: 'relative' }} onClick={() => nav('activity')}>
+            <button className="btn btn-ghost btn-icon-sq" style={{ position: 'relative' }} onClick={() => nav('notifications')} aria-label="Notifications">
               <Bell size={20} strokeWidth={1.8} />
-              {notifications > 0 && (
+              {unreadNotifications > 0 && (
                 <span style={{ position: 'absolute', top: 6, right: 6, width: 8, height: 8, borderRadius: '50%', background: 'var(--danger)', border: '2px solid var(--surface)' }} />
               )}
             </button>

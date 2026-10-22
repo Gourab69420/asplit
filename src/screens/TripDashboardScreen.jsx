@@ -79,7 +79,7 @@ function TripSettingsSheet({ open, onClose, trip, members, expenses, settlements
     try {
       await deleteTrip(trip.id);
       onClose();
-      nav('home');
+      nav('home', {}, { replace: true });
     } catch (e) { setDeleteError(e.message || 'Could not delete trip'); }
     finally { setDeleting(false); }
   };
@@ -265,7 +265,7 @@ function DeletedBanner({ deletedAt, members, expenses, settlements, trip }) {
 
 // ── Main Screen ───────────────────────────────────────────────
 export default function TripDashboardScreen() {
-  const { state, nav, getTripExpenses, getTripMembers, getTripTotal, getSettlements } = useStore();
+  const { state, nav, goBack, getTripExpenses, getTripMembers, getTripTotal, getSettlements } = useStore();
   const { tripId } = state.screenParams;
   const trip = state.trips.find(t => t.id === tripId);
   const [tab, setTab] = useState('expenses');
@@ -294,7 +294,7 @@ export default function TripDashboardScreen() {
       {/* Header */}
       <div style={{ background: trip.coverColor, padding: '16px 20px 20px' }}>
         <div className="flex items-center justify-between mb-4">
-          <button className="btn btn-ghost btn-icon" style={{ color: '#fff', background: 'rgba(255,255,255,0.15)' }} onClick={() => nav('home')}>
+          <button className="btn btn-ghost btn-icon" style={{ color: '#fff', background: 'rgba(255,255,255,0.15)' }} onClick={goBack}>
             <ArrowLeft size={20} />
           </button>
           <div className="flex gap-2">

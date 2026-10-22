@@ -3,7 +3,7 @@ import { ArrowLeft, CheckCircle2, Users } from 'lucide-react';
 import { useStore } from '../store';
 
 export default function JoinTripScreen() {
-  const { state, nav, getTripInvite, requestTripJoin, refreshUserData } = useStore();
+  const { state, nav, goBack, getTripInvite, requestTripJoin, refreshUserData } = useStore();
   const token = state.screenParams?.token;
   const [trip, setTrip] = useState(null);
   const [status, setStatus] = useState('loading');
@@ -48,7 +48,7 @@ export default function JoinTripScreen() {
   return (
     <div className="screen">
       <div style={{ padding: '16px 20px', background: 'var(--surface)', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button className="btn btn-ghost btn-icon" onClick={() => nav('home')}><ArrowLeft size={20} /></button>
+        <button className="btn btn-ghost btn-icon" onClick={goBack}><ArrowLeft size={20} /></button>
         <p className="t-heading">Join a Trip</p>
       </div>
       <div style={{ padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>

@@ -5,8 +5,8 @@ import { useStore } from '../store';
 import { Avatar, formatAmount } from '../components/ui';
 
 export default function SettlementScreen() {
-  const { state, nav } = useStore();
-  const { settlement, tripId } = state.screenParams;
+  const { state, goBack } = useStore();
+  const { settlement } = state.screenParams;
   const [paid, setPaid] = useState(false);
   const [copied, setCopied] = useState('');
   const [copyError, setCopyError] = useState('');
@@ -39,13 +39,13 @@ export default function SettlementScreen() {
 
   const handleMarkPaid = () => {
     setPaid(true);
-    setTimeout(() => nav('tripDashboard', { tripId }), 1200);
+    setTimeout(() => goBack(), 1200);
   };
 
   return (
     <div className="screen">
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px' }}>
-        <button className="btn btn-ghost btn-icon" onClick={() => nav('tripDashboard', { tripId })}><ArrowLeft size={20} /></button>
+        <button className="btn btn-ghost btn-icon" onClick={goBack}><ArrowLeft size={20} /></button>
         <p className="t-heading">Settle Up</p>
       </div>
 

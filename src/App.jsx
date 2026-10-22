@@ -13,6 +13,7 @@ import ExpenseDetailScreen from './screens/ExpenseDetailScreen';
 import SettlementScreen from './screens/SettlementScreen';
 import SheetSyncScreen from './screens/SheetSyncScreen';
 import JoinTripScreen from './screens/JoinTripScreen';
+import NotificationsScreen from './screens/NotificationsScreen';
 
 function EditTripScreen() {
   const { state } = useStore();
@@ -32,6 +33,7 @@ const SCREEN_MAP = {
   settlement:    SettlementScreen,
   sheetSync:     SheetSyncScreen,
   joinInvite:    JoinTripScreen,
+  notifications: NotificationsScreen,
 };
 
 const TAB_SCREENS = new Set(['home', 'trips', 'activity', 'profile']);
@@ -49,7 +51,7 @@ function LoadingSplash() {
 }
 
 function AppInner() {
-  const { state } = useStore();
+  const { state, dispatch } = useStore();
   const { screen, currentUser, loading } = state;
 
   if (loading) {
@@ -95,6 +97,24 @@ function AppInner() {
         </motion.div>
       </AnimatePresence>
       <BottomNav />
+      {state.exitPromptOpen && (
+        <div role="presentation" onClick={() => dispatch({ type: 'HIDE_EXIT_PROMPT' })} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.45)', display: 'grid', placeItems: 'center', padding: 24 }}>
+          <section role="alertdialog" aria-modal="true" aria-labelledby="exit-title" onClick={event => event.stopPropagation()} className="card" style={{ width: '100%', maxWidth: 360, padding: 22 }}>
+            <h2 id="exit-title" className="t-heading">Close ASplit?</h2>
+            <p className="t-body c-2" style={{ marginTop: 8 }}>You’re at the Home screen. Do you want to close the app?</p>
+            <div className="flex gap-2" style={{ marginTop: 20 }}>
+              <button type="button" className="btn btn-outline btn-full" onClick={() => dispatch({ type: 'HIDE_EXIT_PROMPT' })}>Stay</button>
+              <button type="button" className="btn btn-primary btn-full" onClick={() => {
+                dispatch({ type: 'HIDE_EXIT_PROMPT' });
+                const nativeApp = window.Capacitor?.Plugins?.App;
+                if (nativeApp?.exitApp) nativeApp.exitApp();
+                else if (window.navigator.app?.exitApp) window.navigator.app.exitApp();
+                else window.dispatchEvent(new CustomEvent('asplit:exit-requested'));
+              }}>Close app</button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

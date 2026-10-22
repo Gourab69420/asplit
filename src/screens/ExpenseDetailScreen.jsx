@@ -5,8 +5,8 @@ import { Avatar, formatAmount, formatDate, getCategoryMeta } from '../components
 const CATEGORY_ICONS = { hotel: Hotel, food: Utensils, taxi: Car, transport: Car, activity: Zap, shopping: ShoppingBag, coffee: Coffee, fuel: Fuel, other: MoreHorizontal };
 
 export default function ExpenseDetailScreen() {
-  const { state, nav, deleteExpense, getMember } = useStore();
-  const { expenseId, tripId } = state.screenParams;
+  const { state, goBack, deleteExpense, getMember } = useStore();
+  const { expenseId } = state.screenParams;
   const expense = state.expenses.find(e => e.id === expenseId);
   if (!expense) return null;
 
@@ -16,14 +16,14 @@ export default function ExpenseDetailScreen() {
 
   const handleDelete = async () => {
     try { await deleteExpense(expenseId); } catch (e) { console.error(e); }
-    nav('tripDashboard', { tripId });
+    goBack();
   };
 
   return (
     <div className="screen">
       <div style={{ background: meta.bg, padding: '16px 20px 24px' }}>
         <div className="flex items-center justify-between mb-4">
-          <button className="btn btn-ghost btn-icon" style={{ background: 'rgba(0,0,0,0.06)' }} onClick={() => nav('tripDashboard', { tripId })}>
+          <button className="btn btn-ghost btn-icon" style={{ background: 'rgba(0,0,0,0.06)' }} onClick={goBack}>
             <ArrowLeft size={20} />
           </button>
           <button className="btn btn-ghost btn-icon" style={{ background: 'rgba(0,0,0,0.06)', color: 'var(--danger)' }} onClick={handleDelete}>

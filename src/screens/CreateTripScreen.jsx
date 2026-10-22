@@ -7,7 +7,7 @@ const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD'];
 const COVER_COLORS = ['#2563eb', '#7c3aed', '#db2777', '#059669', '#d97706', '#0891b2', '#dc2626', '#65a30d'];
 
 export default function CreateTripScreen({ editTripId: requestedEditTripId } = {}) {
-  const { state, nav, createTrip, updateTrip } = useStore();
+  const { state, nav, goBack, createTrip, updateTrip } = useStore();
   const editTripId = requestedEditTripId ?? state.screenParams?.editTripId;
   const trip = state.trips.find(t => t.id === editTripId);
   const [form, setForm] = useState({ name: '', description: '', currency: 'INR', startDate: '', endDate: '', coverColor: COVER_COLORS[0] });
@@ -41,7 +41,8 @@ export default function CreateTripScreen({ editTripId: requestedEditTripId } = {
     setSaving(true);
     try {
       const savedTrip = editTripId ? await updateTrip(editTripId, form) : await createTrip(form);
-      nav('tripDashboard', { tripId: savedTrip.id });
+      if (editTripId) goBack();
+      else nav('tripDashboard', { tripId: savedTrip.id }, { replace: true });
     } catch (e) {
       setErrors({ submit: e.message });
       setSaving(false);
@@ -52,7 +53,7 @@ export default function CreateTripScreen({ editTripId: requestedEditTripId } = {
     <div className="screen">
       {/* Header */}
       <div style={{ padding: '16px 20px', background: 'var(--surface)', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button className="btn btn-ghost btn-icon" onClick={() => editTripId ? nav('tripDashboard', { tripId: editTripId }) : nav('home')}><ArrowLeft size={20} /></button>
+        <button className="btn btn-ghost btn-icon" onClick={goBack}><ArrowLeft size={20} /></button>
         <p className="t-heading">{editTripId ? 'Edit Trip' : 'New Trip'}</p>
       </div>
 

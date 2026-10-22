@@ -73,7 +73,7 @@ function SectionHeading({ icon: Icon, title, description, action }) {
 }
 
 export default function AddExpenseScreen() {
-  const { state, nav, addExpense, getTripMembers } = useStore();
+  const { state, nav, goBack, addExpense, getTripMembers } = useStore();
   const { tripId } = state.screenParams;
   const trip = state.trips.find(t => t.id === tripId);
   const members = getTripMembers(trip || { members: [] });
@@ -146,7 +146,7 @@ export default function AddExpenseScreen() {
         date: new Date().toISOString().split('T')[0],
         time: new Date().toTimeString().slice(0, 5), notes: notes.trim(),
       });
-      nav('tripDashboard', { tripId });
+      nav('tripDashboard', { tripId }, { replace: true });
     } catch (error) {
       setErrors({ submit: error.message || 'Could not save this expense.' });
     } finally {
@@ -157,7 +157,7 @@ export default function AddExpenseScreen() {
   return (
     <div className="screen">
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px' }}>
-        <button className="btn btn-ghost btn-icon" onClick={() => nav('tripDashboard', { tripId })} aria-label="Back to trip"><ArrowLeft size={20} /></button>
+        <button className="btn btn-ghost btn-icon" onClick={goBack} aria-label="Back to trip"><ArrowLeft size={20} /></button>
         <div><p className="t-heading">Add Expense</p><p className="t-caption c-3">{trip?.name || 'Trip expense'}</p></div>
       </div>
 

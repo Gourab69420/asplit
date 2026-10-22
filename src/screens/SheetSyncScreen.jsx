@@ -58,7 +58,7 @@ function ok(data) {
 }`;
 
 export default function SheetSyncScreen() {
-  const { state, dispatch, nav, syncNow, pullFromSheet } = useStore();
+  const { state, dispatch, goBack, syncNow, pullFromSheet } = useStore();
   const [url, setUrl] = useState(state.sheetScriptUrl);
   const [copied, setCopied] = useState(false);
   const { syncStatus, syncMessage } = state;
@@ -80,7 +80,7 @@ export default function SheetSyncScreen() {
   return (
     <div className="screen">
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px' }}>
-        <button className="btn btn-ghost btn-icon" onClick={() => nav('profile')}><ArrowLeft size={20} /></button>
+        <button className="btn btn-ghost btn-icon" onClick={goBack}><ArrowLeft size={20} /></button>
         <div>
           <p className="t-heading">Google Sheets Sync</p>
           <p className="t-caption c-3">Keep your data in a spreadsheet</p>
