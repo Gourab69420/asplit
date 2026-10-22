@@ -10,13 +10,16 @@ add column if not exists invite_code text unique;
 -- 2. Create index for fast lookup
 create index if not exists trips_invite_code_idx on public.trips (invite_code);
 
--- 3. Function to generate invite code
+-- 3. Function to generate invite code (base64url compatible with older PG)
 create or replace function generate_invite_code()
 returns text
 language sql
 volatile
 as $$
-  select substr(encode(gen_random_bytes(6), 'base64url'), 1, 8);
+  select substr(
+    replace(replace(encode(gen_random_bytes(6), 'base64'), '+', '-'), '/', '_'),
+    1, 8
+  );
 $$;
 
 -- 4. Trigger to auto-generate invite_code on trip insert
