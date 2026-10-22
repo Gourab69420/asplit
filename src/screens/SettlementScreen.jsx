@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Copy, Check, Smartphone, MessageCircle, Phone } from 'lucide-react';
+import { ArrowLeft, Copy, Check, MessageCircle, Phone } from 'lucide-react';
 import { useStore } from '../store';
 import { Avatar, formatAmount } from '../components/ui';
 
@@ -17,11 +17,6 @@ export default function SettlementScreen() {
   const from = members.find(m => m.id === settlement.from);
   const to = members.find(m => m.id === settlement.to);
   const isPayer = state.currentUser?.id === settlement.from;
-  const upiParams = new URLSearchParams({
-    pa: to?.upi?.trim() || '',
-    cu: 'INR',
-  });
-  const upiLink = `upi://pay?${upiParams.toString()}`;
   const phoneDigits = (to?.phone || '').replace(/\D/g, '');
   const whatsappNumber = phoneDigits.length === 10
     ? `91${phoneDigits}`
@@ -78,43 +73,46 @@ export default function SettlementScreen() {
 
         {isPayer ? (
           <>
-            {to?.upi ? (
-              <>
-                <a href={upiLink} className="btn btn-primary btn-full" style={{ textDecoration: 'none' }}>
-                  <Smartphone size={18} /> Settle Up
-                </a>
-                <p className="t-caption c-3" style={{ textAlign: 'center', lineHeight: 1.6 }}>
-                  Enter {formatAmount(settlement.amount)} in your UPI app.
-                </p>
-                <button type="button" onClick={() => handleCopy(to.upi, 'UPI ID')} className="btn btn-outline btn-full">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+              {to?.upi ? (
+                <button type="button" onClick={() => handleCopy(to.upi, 'UPI ID')} className="btn btn-outline btn-full" style={{ minHeight: 46 }}>
                   {copied === 'UPI ID' ? <Check size={18} /> : <Copy size={18} />}
                   {copied === 'UPI ID' ? 'UPI ID Copied' : 'Copy UPI ID'}
                 </button>
-              </>
-            ) : (
-              <div className="card card-p t-caption c-2" style={{ textAlign: 'center' }}>
-                {to?.name || 'The recipient'} needs to add a UPI ID to their profile before you can pay through a UPI app.
-              </div>
-            )}
-
-            {to?.phone && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-                <button type="button" onClick={() => handleCopy(to.phone, 'Phone number')} className="btn btn-outline btn-full">
-                  {copied === 'Phone number' ? <Check size={18} /> : <Copy size={18} />}
-                  {copied === 'Phone number' ? 'Number Copied' : 'Copy Phone Number'}
+              ) : (
+                <button type="button" disabled className="btn btn-outline btn-full" style={{ minHeight: 46, opacity: 0.55 }}>
+                  <Copy size={18} /> UPI ID Not Added
                 </button>
-                {canWhatsApp && (
-                  <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer" className="btn btn-outline btn-full" style={{ textDecoration: 'none' }}>
-                    <MessageCircle size={18} /> WhatsApp
-                  </a>
-                )}
-                {callNumber && (
-                  <a href={`tel:${callNumber}`} className="btn btn-outline btn-full" style={{ textDecoration: 'none' }}>
-                    <Phone size={18} /> Call
-                  </a>
-                )}
-              </div>
-            )}
+              )}
+              {to?.phone ? (
+                <button type="button" onClick={() => handleCopy(to.phone, 'Phone number')} className="btn btn-outline btn-full" style={{ minHeight: 46 }}>
+                  {copied === 'Phone number' ? <Check size={18} /> : <Copy size={18} />}
+                  {copied === 'Phone number' ? 'Number Copied' : 'Copy Phone No.'}
+                </button>
+              ) : (
+                <button type="button" disabled className="btn btn-outline btn-full" style={{ minHeight: 46, opacity: 0.55 }}>
+                  <Copy size={18} /> Phone No. Not Added
+                </button>
+              )}
+              {canWhatsApp ? (
+                <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer" className="btn btn-full" style={{ minHeight: 46, background: '#16a34a', color: '#fff', textDecoration: 'none' }}>
+                  <MessageCircle size={18} /> WhatsApp
+                </a>
+              ) : (
+                <button type="button" disabled className="btn btn-full" style={{ minHeight: 46, background: '#16a34a', color: '#fff', opacity: 0.5 }}>
+                  <MessageCircle size={18} /> WhatsApp
+                </button>
+              )}
+              {callNumber ? (
+                <a href={`tel:${callNumber}`} className="btn btn-full" style={{ minHeight: 46, background: 'var(--accent)', color: '#fff', textDecoration: 'none' }}>
+                  <Phone size={18} /> Call
+                </a>
+              ) : (
+                <button type="button" disabled className="btn btn-full" style={{ minHeight: 46, background: 'var(--accent)', color: '#fff', opacity: 0.5 }}>
+                  <Phone size={18} /> Call
+                </button>
+              )}
+            </div>
             {copyError && <p role="alert" className="t-caption c-2" style={{ textAlign: 'center', userSelect: 'all' }}>{copyError}</p>}
 
             <AnimatePresence mode="wait">
